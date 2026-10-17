@@ -2,8 +2,8 @@
 
 Package: `gpui-ce-motion` · repository: https://github.com/1bye/gpui-motion
 
-The crate has not been published. The GitHub CI workflow validates changes only;
-it has no publishing step or crates.io credentials.
+The GitHub CI workflow validates changes only; it has no publishing step or
+crates.io credentials.
 
 ## Validate a release
 
@@ -51,14 +51,14 @@ cargo publish --locked --features gpui
 
 Only this last command uploads the crate. Published versions cannot be overwritten.
 After successful publication, create the matching Git tag and GitHub release,
-and confirm that docs.rs built the native API documentation. Remove the
-unpublished notice from README.md as part of the release preparation.
+and confirm that docs.rs built the native API documentation. Update the
+changelog and README installation instructions as part of release preparation.
 
 Official guide: https://doc.rust-lang.org/cargo/reference/publishing.html
 
 ## Consumers
 
-Before publication, use a path to this checkout or a Git revision:
+For unreleased development, use a path to this checkout or a Git revision:
 
 ```toml
 [dependencies]
@@ -66,7 +66,7 @@ gpui-ce-motion = { git = "https://github.com/1bye/gpui-motion", rev = "<commit>"
 gpui = { package = "gpui-ce", version = "=0.2.2", default-features = false }
 ```
 
-After publication:
+For registry releases:
 
 ```toml
 [dependencies]

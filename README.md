@@ -12,11 +12,21 @@ shared position/crossfade, style tracks, and compatible vector morph/reveal are 
 No React, JavaScript runtime, async executor, or per-animation tasks.
 
 Source repository: [1bye/gpui-motion](https://github.com/1bye/gpui-motion).
-Crate name: `gpui-ce-motion`. Version 0.1.0 is prepared but not published.
+Crate name: `gpui-ce-motion`. Release notes: [CHANGELOG.md](CHANGELOG.md).
 Rust 1.95+, edition 2024, MIT OR Apache-2.0. The default feature set has no
 third-party dependencies. Enable `gpui` for the native adapter. It is tested
 against registry `gpui-ce =0.2.2`. The original app also tested official CE
 revision `094fe979fc4bd9a7dd4544d75b147a9278afcecf`; this repository uses registry dependencies only.
+
+## Installation
+
+```toml
+[dependencies]
+gpui-ce-motion = { version = "0.1", features = ["gpui"] }
+```
+
+Use registry `gpui-ce =0.2.2` throughout your application. The `gpui` feature
+provides native element adapters; omit it to use the portable motion engine.
 
 ## Native usage
 
