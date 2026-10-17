@@ -1,0 +1,5 @@
+# Stable options only. Cargo supplies the consuming package's Rust edition.
+max_width = 100
+hard_tabs = false
+tab_spaces = 4
+newline_style = "Unix"

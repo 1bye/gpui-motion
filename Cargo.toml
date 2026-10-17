@@ -1,0 +1,95 @@
+[package]
+name = "gpui-ce-motion"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.95"
+publish = ["crates-io"]
+description = "Declarative, interruptible motion and presence for native GPUI CE applications"
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/1bye/gpui-motion"
+documentation = "https://docs.rs/gpui-ce-motion"
+keywords = ["gpui", "animation", "spring", "native", "ui"]
+categories = ["gui", "graphics"]
+include = ["src/**", "examples/**", "PUBLISHING.md", "tests/**", "benches/**", "README.md", "PERFORMANCE.md", "COVERAGE.md", "LICENSE-*", "Cargo.toml"]
+
+[lints.rust]
+missing_docs = "warn"
+unsafe_op_in_unsafe_fn = "deny"
+
+[lints.clippy]
+dbg_macro = "warn"
+todo = "warn"
+undocumented_unsafe_blocks = "warn"
+
+[features]
+default = []
+gpui = ["dep:gpui"]
+# Window-system backends are only needed to run the demos.
+demo = ["gpui", "dep:gpui_platform"]
+# Opt-in headless tests of real CE layout/prepaint/input, excluded from normal builds.
+native-tests = ["gpui", "gpui/test-support"]
+
+[dependencies]
+# Match the published CE API; no workspace patches or Git dependencies.
+gpui = { package = "gpui-ce", version = "=0.2.2", default-features = false, optional = true }
+
+gpui_platform = { package = "gpui_ce_platform", version = "=0.1.0", optional = true, features = ["font-kit", "wayland", "x11"] }
+
+[package.metadata.docs.rs]
+features = ["gpui"]
+default-target = "aarch64-apple-darwin"
+
+[[bench]]
+name = "sampling"
+harness = false
+
+[[test]]
+name = "layout_native"
+required-features = ["native-tests"]
+
+[[bench]]
+name = "layout_native"
+harness = false
+required-features = ["native-tests"]
+
+[[test]]
+name = "advanced_native"
+required-features = ["native-tests"]
+
+[[bench]]
+name = "advanced_native"
+harness = false
+required-features = ["native-tests"]
+
+[[example]]
+name = "gpui_eval"
+required-features = ["demo"]
+
+[[example]]
+name = "layout_motion"
+required-features = ["demo"]
+
+[[example]]
+name = "motion"
+required-features = ["demo"]
+
+[[example]]
+name = "motion_features"
+required-features = ["demo"]
+
+[[example]]
+name = "motion_native"
+required-features = ["demo"]
+
+[[example]]
+name = "motion_showcase"
+required-features = ["demo"]
+
+[[example]]
+name = "sidebar"
+required-features = ["demo"]
+
+[[example]]
+name = "svg_motion"
+required-features = ["demo"]
