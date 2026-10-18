@@ -2,22 +2,26 @@
 //! Run `cargo bench -p gpui-ce-motion --features native-tests --bench layout_native`.
 use gpui::{AppContext, Context, Render, TestAppContext, Window, div, prelude::*, px, rgb, size};
 use gpui_ce_motion::LayoutGroup;
+
 use std::{
     hint::black_box,
     time::{Duration, Instant},
 };
+
 #[derive(Clone, Copy)]
 enum Mode {
     Direct,
     Disabled,
     Animated,
 }
+
 struct Board {
     group: LayoutGroup,
     compact: bool,
     reverse: bool,
     mode: Mode,
 }
+
 impl Render for Board {
     fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
         let mut board = div()
@@ -49,6 +53,7 @@ impl Render for Board {
         div().size_full().child(board)
     }
 }
+
 fn run(mode: Mode, label: &str) {
     let mut batches = Vec::with_capacity(7);
     let mut frames = Vec::with_capacity(7 * 240);
@@ -102,6 +107,7 @@ fn run(mode: Mode, label: &str) {
         frames[(frames.len() as f64 * 0.95) as usize]
     );
 }
+
 fn main() {
     run(Mode::Direct, "direct layout");
     run(Mode::Disabled, "position tracking, interpolation disabled");

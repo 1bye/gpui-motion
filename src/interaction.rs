@@ -7,6 +7,7 @@ use std::time::Duration;
 pub struct Variants<K> {
     entries: Vec<(K, Motion)>,
 }
+
 impl<K: PartialEq> Variants<K> {
     /// Creates named declarations, rejecting duplicate names transactionally.
     pub fn new(entries: impl IntoIterator<Item = (K, Motion)>) -> Result<Self, AnimationError> {
@@ -22,6 +23,7 @@ impl<K: PartialEq> Variants<K> {
 
         Ok(Self { entries })
     }
+
     /// Looks up a declaration. Pass the same key to children for variant propagation.
     pub fn get(&self, key: &K) -> Option<Motion> {
         self.entries
@@ -30,6 +32,7 @@ impl<K: PartialEq> Variants<K> {
             .map(|(_, motion)| *motion)
     }
 }
+
 /// Current input state supplied by normal native input/focus handlers.
 #[derive(Clone, Copy, Debug, Default)]
 #[non_exhaustive]
@@ -45,6 +48,7 @@ pub struct Interaction {
     /// The control meets the configured viewport visibility threshold.
     pub in_view: bool,
 }
+
 /// Partial interaction targets. Priority is in-view, hover, focus, press, then drag.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct GestureTargets {
@@ -54,6 +58,7 @@ pub struct GestureTargets {
     drag: Option<Target>,
     view: Option<Target>,
 }
+
 impl GestureTargets {
     /// Declares the hover override.
     pub fn while_hover(mut self, target: Target) -> Self {
@@ -61,30 +66,35 @@ impl GestureTargets {
 
         self
     }
+
     /// Declares the pointer/keyboard press override.
     pub fn while_press(mut self, target: Target) -> Self {
         self.press = Some(target);
 
         self
     }
+
     /// Declares the keyboard-visible focus override.
     pub fn while_focus(mut self, target: Target) -> Self {
         self.focus = Some(target);
 
         self
     }
+
     /// Declares the dragging override.
     pub fn while_drag(mut self, target: Target) -> Self {
         self.drag = Some(target);
 
         self
     }
+
     /// Declares the viewport visibility override.
     pub fn while_in_view(mut self, target: Target) -> Self {
         self.view = Some(target);
 
         self
     }
+
     /// Combines active overrides without replacing unrelated base properties.
     pub fn resolve(self, mut base: Target, state: Interaction) -> Target {
         for (active, target) in [
@@ -102,6 +112,7 @@ impl GestureTargets {
         base
     }
 }
+
 /// Bounded two-dimensional drag with explicit ownership of pointer capture/cancellation.
 #[derive(Debug)]
 pub struct Drag {
@@ -116,6 +127,7 @@ pub struct Drag {
     snap: Option<f64>,
     momentum: bool,
 }
+
 impl Drag {
     /// Validates finite ordered bounds and an initial position inside them.
     pub fn new(initial: [f64; 2], min: [f64; 2], max: [f64; 2]) -> Self {
@@ -141,6 +153,7 @@ impl Drag {
             momentum: true,
         }
     }
+
     /// Sets drag resistance outside bounds. Panics unless in zero through one.
     pub fn elasticity(mut self, value: f64) -> Self {
         assert!((0.0..=1.0).contains(&value), "invalid elasticity");
@@ -148,6 +161,7 @@ impl Drag {
 
         self
     }
+
     /// Snaps release destinations to this positive finite grid spacing.
     pub fn snap_grid(mut self, spacing: f64) -> Self {
         assert!(spacing.is_finite() && spacing > 0.0, "invalid snap grid");
@@ -155,12 +169,14 @@ impl Drag {
 
         self
     }
+
     /// Enables/disables velocity projection on release.
     pub fn momentum(mut self, enabled: bool) -> Self {
         self.momentum = enabled;
 
         self
     }
+
     /// Grabs the currently presented position, interrupting any previous release motion.
     pub fn begin(&mut self, pointer: [f64; 2], now: Duration) {
         assert!(pointer.iter().all(|v| v.is_finite()), "invalid pointer");
@@ -176,6 +192,7 @@ impl Drag {
         self.last_move = now;
         self.dragging = true;
     }
+
     /// Follows the pointer one-to-one inside bounds, with configured resistance outside.
     pub fn move_to(&mut self, pointer: [f64; 2], now: Duration) {
         assert!(pointer.iter().all(|v| v.is_finite()), "invalid pointer");
@@ -196,6 +213,7 @@ impl Drag {
             self.values[ix].set(clamped + (raw - clamped) * self.elasticity, now);
         }
     }
+
     /// Releases into bounded inertia, or a velocity-preserving spring to a snap point.
     /// Holding still for over 100 ms clears stale pointer momentum before release.
     pub fn end(&mut self, now: Duration) {
@@ -236,6 +254,7 @@ impl Drag {
             }
         }
     }
+
     /// Cancels an active drag and returns to the grabbed position. Use on Escape or lost capture.
     /// Does nothing after release, so later focus loss cannot undo a completed gesture.
     pub fn cancel(&mut self, now: Duration) {
@@ -253,6 +272,7 @@ impl Drag {
             );
         }
     }
+
     /// A keyboard equivalent of dragging: retargets a bounded position using a spring.
     pub fn move_by(&mut self, delta: [f64; 2], now: Duration) {
         assert!(delta.iter().all(|v| v.is_finite()), "invalid drag delta");
@@ -264,6 +284,7 @@ impl Drag {
             self.values[ix].animate(target, Transition::default(), now);
         }
     }
+
     /// Samples a drawable x/y presentation. The owner requests frames while it is active.
     pub fn sample(&mut self, now: Duration, reduced_motion: bool) -> Frame {
         let values = self
@@ -287,6 +308,7 @@ impl Drag {
             values.iter().any(|v| v.just_completed()) && values.iter().all(|v| !v.is_animating()),
         )
     }
+
     /// Whether a pointer currently owns this gesture.
     pub fn is_dragging(&self) -> bool {
         self.dragging
@@ -313,6 +335,7 @@ pub fn transform(value: f64, input: [f64; 2], output: [f64; 2], clamp: bool) -> 
 
     output[0] + (output[1] - output[0]) * progress
 }
+
 /// Normalizes a positive scroll offset using measured content and viewport extents.
 /// An unscrollable viewport reports zero. Panics for invalid metrics.
 pub fn scroll_progress(offset: f64, content: f64, viewport: f64) -> f64 {
@@ -329,6 +352,7 @@ pub fn scroll_progress(offset: f64, content: f64, viewport: f64) -> f64 {
         (offset / (content - viewport)).clamp(0.0, 1.0)
     }
 }
+
 /// Retained visibility threshold with optional once-only triggering.
 #[derive(Clone, Copy, Debug)]
 pub struct InView {
@@ -337,6 +361,7 @@ pub struct InView {
     entered: bool,
     visible: bool,
 }
+
 impl InView {
     /// Creates a threshold. Zero means any positive intersection; one means fully visible.
     pub fn new(amount: f64, once: bool) -> Self {
@@ -352,6 +377,7 @@ impl InView {
             visible: false,
         }
     }
+
     /// Updates from viewport/element `[x,y,width,height]` bounds in the same coordinate space.
     /// Returns whether visibility changed. Zero-area elements are invisible.
     pub fn update(&mut self, viewport: [f64; 4], element: [f64; 4]) -> bool {
@@ -385,11 +411,13 @@ impl InView {
 
         changed
     }
+
     /// Last resolved visibility, including a once-only latch.
     pub fn is_visible(&self) -> bool {
         self.visible
     }
 }
+
 /// Finds the nearest destination in a sorted list of item centers, for native reorder UIs.
 pub fn reorder_index(centers: &[f64], position: f64) -> Result<usize, AnimationError> {
     if centers.is_empty()
@@ -407,6 +435,7 @@ pub fn reorder_index(centers: &[f64], position: f64) -> Result<usize, AnimationE
         .unwrap()
         .0)
 }
+
 /// Moves an item without reallocating or changing its identity. Invalid indices return an error.
 pub fn move_item<T>(items: &mut [T], from: usize, to: usize) -> Result<(), AnimationError> {
     if from >= items.len() || to >= items.len() {

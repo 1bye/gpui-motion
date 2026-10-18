@@ -2,14 +2,17 @@
 //! Real: scalar solver and optional CE adapter. Doubles: none. Requires: no GPU.
 use gpui_ce_motion::{Easing, SvgMotion, SvgMotionState, SvgTarget, Transition};
 use std::time::Duration;
+
 fn ms(n: u64) -> Duration {
     Duration::from_millis(n)
 }
+
 fn destination() -> SvgTarget {
     SvgTarget::default()
         .scale_xy(1.5, 0.75)
         .rotate_degrees(180.)
 }
+
 fn motion() -> SvgMotion {
     SvgMotion::new(destination()).initial(SvgTarget::default())
 }
@@ -31,6 +34,7 @@ fn first_mount_without_initial_is_immediate_and_initial_is_used_once() {
     assert_eq!(frame.target(), next.target());
     assert!(next.is_animating());
 }
+
 #[test]
 fn interrupted_springs_preserve_all_presentations_and_velocities_between_samples() {
     let mut state = SvgMotionState::default();
@@ -62,6 +66,7 @@ fn interrupted_springs_preserve_all_presentations_and_velocities_between_samples
     assert!(done.just_completed());
     assert!(!state.sample(reverse, ms(5001), false).just_completed());
 }
+
 #[test]
 fn tween_interruption_delay_and_backward_time_preserve_position() {
     let spec = motion()
@@ -92,6 +97,7 @@ fn tween_interruption_delay_and_backward_time_preserve_position() {
         SvgTarget::default()
     );
 }
+
 #[test]
 fn absolute_rotation_preserves_full_turns_and_negative_scales() {
     let spec = SvgMotion::new(SvgTarget::default().scale_xy(-1., 0.).rotate_degrees(720.))
@@ -114,6 +120,7 @@ fn absolute_rotation_preserves_full_turns_and_negative_scales() {
         720.
     );
 }
+
 #[test]
 fn reduced_motion_finishes_delays_and_does_not_replay() {
     let spec = motion().delay(ms(1000));
@@ -132,6 +139,7 @@ fn reduced_motion_finishes_delays_and_does_not_replay() {
     assert!(!idle.is_animating());
     assert!(!idle.just_completed());
 }
+
 #[test]
 fn analytic_svg_sampling_is_independent_of_frame_rate() {
     let mut fine = SvgMotionState::default();
@@ -150,6 +158,7 @@ fn analytic_svg_sampling_is_independent_of_frame_rate() {
     assert_eq!(a.target(), b.target());
     assert_eq!(a.velocity(), b.velocity());
 }
+
 #[test]
 fn transform_builders_reject_nonfinite_values() {
     for v in [f32::NAN, f32::INFINITY, f32::NEG_INFINITY] {
@@ -160,6 +169,7 @@ fn transform_builders_reject_nonfinite_values() {
         );
     }
 }
+
 #[cfg(feature = "gpui")]
 #[test]
 fn native_transform_uses_signed_scales_and_reduces_only_the_paint_angle() {
@@ -182,6 +192,7 @@ fn native_transform_uses_signed_scales_and_reduces_only_the_paint_angle() {
     assert_eq!(svg.style().size.width, Some(px(24.).into()));
     assert_eq!(svg.style().size.height, Some(px(24.).into()));
 }
+
 #[cfg(feature = "gpui")]
 #[test]
 fn huge_finite_angles_stay_finite_at_the_native_boundary() {

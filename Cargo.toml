@@ -95,4 +95,4 @@ name = "svg_motion"
 required-features = ["demo"]
 
 [workspace.metadata.dylint]
-libraries = [{ git = "https://github.com/1bye/workflow", rev = "18a88ce062d6d8e8334d28ff2cdeb04903f6311b", pattern = "rust/spacing" }]
+libraries = [{ git = "https://github.com/1bye/workflow", rev = "f62c7d7dcdf3ffd9b77de95a523544a0c688bb9b", pattern = "rust/spacing" }]

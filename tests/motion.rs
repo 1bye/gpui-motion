@@ -8,6 +8,7 @@ use std::time::Duration;
 fn at(ms: u64) -> Duration {
     Duration::from_millis(ms)
 }
+
 fn spec(transition: Transition) -> Motion {
     Motion::new(Target::default().x(100.0))
         .initial(Target::default())

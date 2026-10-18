@@ -1,19 +1,23 @@
 //! Native input adapter with a persistent owner and frame-scoped listeners.
 use crate::{Drag, GestureTargets, InView, Interaction, Motion, MotionState, Target};
+
 use gpui::{
     AnyElement, App, Bounds, DispatchPhase, Div, Element, ElementId, EntityId, FocusHandle,
     GlobalElementId, Hitbox, HitboxBehavior, InspectorElementId, IntoElement, KeyDownEvent,
     KeyUpEvent, LayoutId, MouseButton, MouseDownEvent, MouseExitEvent, MouseMoveEvent,
     MouseUpEvent, Pixels, Stateful, Window, prelude::*, px,
 };
+
 // notify is a trait method in the official pin, inherent in registry CE 0.2.2.
 #[allow(unused_imports)]
 use gpui::AppContext;
+
 use std::{
     cell::RefCell,
     rc::Rc,
     time::{Duration, Instant},
 };
+
 #[derive(Default)]
 struct Data {
     interaction: Interaction,
@@ -27,6 +31,7 @@ struct Data {
     key: Option<String>,
     presented: Target,
 }
+
 impl Data {
     fn now(&self, cx: &App) -> Duration {
         self.epoch.map_or(Duration::ZERO, |epoch| {
@@ -35,6 +40,7 @@ impl Data {
                 .saturating_duration_since(epoch)
         })
     }
+
     fn cancel(&mut self, cx: &App) {
         let now = self.now(cx);
 
@@ -47,17 +53,20 @@ impl Data {
         self.interaction.pressed = false;
         self.interaction.dragging = false;
     }
+
     fn notify(&self, cx: &mut App) {
         if let Some(owner) = self.owner {
             cx.notify(owner);
         }
     }
 }
+
 /// Retain one handle per logical control. Clones share input/motion state.
 /// Mouse release outside the hitbox, lost button, Escape, blur and deactivation
 /// clear ownership. Native desktop mouse events are supported, not multi-touch.
 #[derive(Clone, Default)]
 pub struct GestureState(Rc<RefCell<Data>>);
+
 impl GestureState {
     /// Adds bounded native pointer/arrow-key dragging. Configure once in the view.
     pub fn with_drag(self, drag: Drag) -> Self {
@@ -65,24 +74,29 @@ impl GestureState {
 
         self
     }
+
     /// Enables automatically measured clipped viewport visibility. Configure once.
     pub fn in_view(self, amount: f64, once: bool) -> Self {
         self.0.borrow_mut().visibility = Some(InView::new(amount, once));
 
         self
     }
+
     /// Current resolved interaction flags, supplied automatically by the element.
     pub fn interaction(&self) -> Interaction {
         self.0.borrow().interaction
     }
+
     /// Last presented target, including drag displacement.
     pub fn presented(&self) -> Target {
         self.0.borrow().presented
     }
+
     /// The stable focus handle, available after the first layout.
     pub fn focus_handle(&self) -> Option<FocusHandle> {
         self.0.borrow().focus.clone()
     }
+
     /// Cancels pointer/key state and bounded dragging, notifying the owning view.
     pub fn cancel(&self, cx: &mut App) {
         let mut data = self.0.borrow_mut();
@@ -90,6 +104,7 @@ impl GestureState {
         data.cancel(cx);
         data.notify(cx);
     }
+
     /// Wraps a styled native control and automatically binds hover/press/focus,
     /// viewport and optional drag. Supply role, label and click behavior on the
     /// child. The adapter supplies a stable tab-stop focus handle. Configure
@@ -120,6 +135,7 @@ impl GestureState {
         }
     }
 }
+
 /// Frame-scoped input/motion wrapper produced by `GestureState::bind`.
 pub struct GestureElement {
     id: ElementId,
@@ -129,6 +145,7 @@ pub struct GestureElement {
     targets: GestureTargets,
     enabled: bool,
 }
+
 impl GestureElement {
     /// Disables native input bindings and keyboard tab stops. Cancels a held
     /// gesture on the next render; the owner restores focus if disabling the
@@ -140,21 +157,27 @@ impl GestureElement {
         self
     }
 }
+
 impl IntoElement for GestureElement {
     type Element = Self;
+
     fn into_element(self) -> Self {
         self
     }
 }
+
 impl Element for GestureElement {
     type RequestLayoutState = AnyElement;
     type PrepaintState = Hitbox;
+
     fn id(&self) -> Option<ElementId> {
         Some(self.id.clone())
     }
+
     fn source_location(&self) -> Option<&'static std::panic::Location<'static>> {
         None
     }
+
     fn request_layout(
         &mut self,
         _: Option<&GlobalElementId>,
@@ -233,6 +256,7 @@ impl Element for GestureElement {
 
         (layout, child)
     }
+
     fn prepaint(
         &mut self,
         _: Option<&GlobalElementId>,
@@ -270,6 +294,7 @@ impl Element for GestureElement {
 
         hitbox
     }
+
     fn paint(
         &mut self,
         _: Option<&GlobalElementId>,

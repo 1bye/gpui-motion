@@ -1,11 +1,13 @@
 //! Linear-light RGBA interpolation and interruptible color motion.
 use crate::{MotionValue, Transition};
 use std::time::Duration;
+
 /// A linear-light RGBA color, constructed and read as sRGB channels in zero through one.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Color {
     linear: [f64; 4],
 }
+
 impl Color {
     /// Validates sRGB channels and alpha. Panics unless all are in zero through one.
     pub fn rgba(r: f64, g: f64, b: f64, a: f64) -> Self {
@@ -25,6 +27,7 @@ impl Color {
             linear: [linear(r), linear(g), linear(b), a],
         }
     }
+
     /// Creates an opaque color from `0xRRGGBB`.
     pub fn rgb(hex: u32) -> Self {
         Self::rgba(
@@ -34,6 +37,7 @@ impl Color {
             1.0,
         )
     }
+
     /// Reads clamped sRGB channels and alpha.
     pub fn channels(self) -> [f32; 4] {
         let srgb = |v: f64| {
@@ -53,6 +57,7 @@ impl Color {
             self.linear[3].clamp(0.0, 1.0) as f32,
         ]
     }
+
     /// Mixes in linear light; finite progress is clamped to zero through one.
     pub fn mix(self, other: Self, progress: f64) -> Self {
         assert!(progress.is_finite(), "invalid color progress");
@@ -65,11 +70,13 @@ impl Color {
         }
     }
 }
+
 /// Retained, interruptible color motion. Each linear-light channel retains spring velocity.
 #[derive(Debug)]
 pub struct ColorState {
     channels: [MotionValue; 4],
 }
+
 impl ColorState {
     /// Creates a resting color.
     pub fn new(color: Color) -> Self {
@@ -77,6 +84,7 @@ impl ColorState {
             channels: color.linear.map(MotionValue::new),
         }
     }
+
     /// Samples a target color with no heap allocation. Returns color and whether motion is active.
     pub fn sample(
         &mut self,

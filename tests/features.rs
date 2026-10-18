@@ -2,15 +2,19 @@
 //! Real: motion engine and deterministic injected clocks. Doubles: none. Requires: none.
 use gpui_ce_motion::*;
 use std::time::Duration;
+
 fn ms(n: u64) -> Duration {
     Duration::from_millis(n)
 }
+
 fn x(x: f32) -> Target {
     Target::default().x(x)
 }
+
 fn close(a: f64, b: f64) {
     assert!((a - b).abs() < 0.0001, "{a} != {b}");
 }
+
 fn clip() -> Animation {
     Animation::to(x(100.), ms(1000), Easing::Linear)
 }
@@ -54,6 +58,7 @@ fn keyframes_nonuniform_holds_and_validation() {
         Animation::keyframes(ms(1), [Keyframe::current(0.), Keyframe::current(f64::NAN)]).is_err()
     );
 }
+
 #[test]
 fn repeat_reverse_and_mirror_have_different_easing_and_exact_endpoints() {
     for (mode, expected) in [
@@ -90,6 +95,7 @@ fn repeat_reverse_and_mirror_have_different_easing_and_exact_endpoints() {
             .is_err()
     );
 }
+
 #[test]
 fn controls_seek_pause_speed_backward_clocks_and_completion_edges() {
     let a = clip();
@@ -115,6 +121,7 @@ fn controls_seek_pause_speed_backward_clocks_and_completion_edges() {
     assert!(!s.sample(&a, ms(1100), false).just_completed());
     assert!(s.set_speed(f64::NAN, ms(1100)).is_err());
 }
+
 #[test]
 fn controls_before_binding_and_infinite_reduced_motion_do_not_restart() {
     let a = clip()
@@ -136,6 +143,7 @@ fn controls_before_binding_and_infinite_reduced_motion_do_not_restart() {
     s.play(ms(500));
     assert!(s.sample(&a, ms(600), false).is_animating());
 }
+
 #[test]
 fn spring_clip_interruption_preserves_position_and_velocity() {
     let a = Animation::spring(x(200.), Spring::default(), ms(2000));
@@ -150,6 +158,7 @@ fn spring_clip_interruption_preserves_position_and_velocity() {
     close(before.velocity()[0], after.velocity()[0]);
     assert_eq!(s.sample(&b, ms(2100), false).target().x_px(), -50.);
 }
+
 #[test]
 fn timeline_overlap_labels_stagger_seek_and_pause() {
     let mut t = Timeline::default();
@@ -179,6 +188,7 @@ fn timeline_overlap_labels_stagger_seek_and_pause() {
     assert!(stagger(ms(1), 4, 4, StaggerFrom::Start).is_err());
     assert!(t.at_label("missing", ms(0), clip()).is_err());
 }
+
 #[test]
 fn independent_property_delay_does_not_finish_presence_early() {
     let spec = Motion::new(x(100.).opacity(0.))
@@ -200,6 +210,7 @@ fn independent_property_delay_does_not_finish_presence_early() {
     assert!(!f.just_completed());
     assert!(s.sample(spec, ms(300), false).just_completed());
 }
+
 #[test]
 fn scalar_velocity_inertia_bounds_and_frame_rate_independence() {
     let mut v = MotionValue::new(0.);
@@ -228,6 +239,7 @@ fn scalar_velocity_inertia_bounds_and_frame_rate_independence() {
     extreme.animate(f64::MAX, Transition::Tween(ms(1000), Easing::Linear), ms(0));
     assert!(extreme.sample(ms(500), false).value().is_finite());
 }
+
 #[test]
 fn drag_bounds_momentum_snap_cancel_keyboard_and_regrab() {
     let mut d = Drag::new([0., 0.], [0., 0.], [200., 100.])
@@ -248,6 +260,7 @@ fn drag_bounds_momentum_snap_cancel_keyboard_and_regrab() {
     d.move_by([-500., 0.], ms(20000));
     assert_eq!(d.sample(ms(20001), true).target().x_px(), 0.);
 }
+
 #[test]
 fn variants_partial_gestures_scroll_visibility_and_reordering() {
     let variants = Variants::new([("on", Motion::new(x(80.).width(100.)))]).unwrap();
@@ -283,6 +296,7 @@ fn variants_partial_gestures_scroll_visibility_and_reordering() {
     move_item(&mut items, 0, 2).unwrap();
     assert_eq!(items, ["b", "c", "a"]);
 }
+
 #[test]
 fn linear_light_color_and_color_interruption() {
     let black = Color::rgb(0);
@@ -303,6 +317,7 @@ fn linear_light_color_and_color_interruption() {
         white.channels()
     );
 }
+
 #[test]
 fn keyed_presence_wait_reentry_and_transactional_duplicate_validation() {
     let mut group = PresenceGroup::new(PresenceMode::Wait);
@@ -346,6 +361,7 @@ fn mirror_with_nonuniform_segments_and_huge_repeat_skips() {
     assert_eq!(s.iteration(), 1_000_000_001);
     assert_eq!(frame.target().x_px(), 200.);
 }
+
 #[test]
 fn timeline_backward_end_is_idle_and_speed_scales_velocity() {
     let mut t = Timeline::default();
@@ -358,6 +374,7 @@ fn timeline_backward_end_is_idle_and_speed_scales_velocity() {
     t.sample(ms(500), false);
     assert!(!t.is_animating());
 }
+
 #[test]
 fn bezier_validation_and_linear_curve_are_observable_through_playback() {
     assert!(Bezier::new(-1., 0., 1., 1.).is_err());

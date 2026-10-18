@@ -11,7 +11,7 @@ import subprocess
 import tempfile
 
 
-SPACING_CODES = {"statement_padding", "multiple_empty_lines", "padded_blocks"}
+SPACING_CODES = {"statement_padding", "item_padding", "multiple_empty_lines", "padded_blocks"}
 
 
 @dataclass

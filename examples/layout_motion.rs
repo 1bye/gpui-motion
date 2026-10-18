@@ -5,8 +5,10 @@ use gpui::{
     App, Bounds, Context, Div, FocusHandle, KeyBinding, Menu, MenuItem, Role, Stateful,
     TitlebarOptions, Window, WindowBounds, WindowOptions, actions, div, prelude::*, px, rgb, size,
 };
+
 use gpui_ce_motion::{Easing, LayoutGroup, Transition};
 use std::time::Duration;
+
 actions!(
     layout_demo,
     [
@@ -34,6 +36,7 @@ actions!(
         Quit,
     ]
 );
+
 fn button(id: &'static str, label: &'static str) -> Stateful<Div> {
     div()
         .id(id)
@@ -49,6 +52,7 @@ fn button(id: &'static str, label: &'static str) -> Stateful<Div> {
         .focus_visible(|s| s.border_color(rgb(0xb8c8ff)))
         .child(label)
 }
+
 struct Demo {
     group: LayoutGroup,
     root: FocusHandle,
@@ -62,6 +66,7 @@ struct Demo {
     selected: Option<usize>,
     clicks: usize,
 }
+
 impl Render for Demo {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let transition = if self.tween {
@@ -230,6 +235,7 @@ impl Render for Demo {
             .child(div().text_sm().text_color(rgb(0xaab4c7)).child("Board size and card sizes change immediately. This animates position only; new cards mount at their layout position."))
     }
 }
+
 fn main() {
     gpui_platform::application().run(|cx: &mut App| {
         let modifier = if cfg!(target_os = "macos") {

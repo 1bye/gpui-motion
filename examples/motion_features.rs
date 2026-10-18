@@ -6,12 +6,15 @@ use gpui::{
     Stateful, Subscription, TitlebarOptions, Window, WindowBounds, WindowOptions, div, prelude::*,
     px, rgb, size,
 };
+
 use gpui_ce_motion::{
     Animation, AnimationState, Color, ColorState, Drag, Easing, GestureTargets, InView,
     Interaction, Keyframe, Motion, MotionState, PresenceGroup, PresenceMode, Repeat, RepeatMode,
     StaggerFrom, Target, Timeline, Transition, Variants, move_item, scroll_progress, stagger,
 };
+
 use std::time::{Duration, Instant};
+
 gpui::actions!(
     motion_features,
     [
@@ -25,6 +28,7 @@ gpui::actions!(
 fn ms(n: u64) -> Duration {
     Duration::from_millis(n)
 }
+
 fn button(id: &'static str, label: &'static str) -> Stateful<Div> {
     div()
         .id(id)
@@ -40,9 +44,11 @@ fn button(id: &'static str, label: &'static str) -> Stateful<Div> {
         .focus_visible(|s| s.border_color(rgb(0xb8c8ff)))
         .child(label)
 }
+
 fn label(text: impl Into<SharedString>) -> Div {
     div().text_sm().text_color(rgb(0xaab4c7)).child(text.into())
 }
+
 fn status(id: &'static str, text: impl Into<SharedString>) -> Stateful<Div> {
     let text = text.into();
 
@@ -52,11 +58,13 @@ fn status(id: &'static str, text: impl Into<SharedString>) -> Stateful<Div> {
         .aria_label(text.clone())
         .child(label(text))
 }
+
 #[derive(Clone, Copy, PartialEq)]
 enum Variant {
     Compact,
     Wide,
 }
+
 struct Gallery {
     started: Instant,
     focus: FocusHandle,
@@ -82,6 +90,7 @@ struct Gallery {
     clip_state: AnimationState,
     _activation: Subscription,
 }
+
 impl Gallery {
     fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
         let focus = cx.focus_handle();
@@ -168,6 +177,7 @@ impl Gallery {
             _activation: activation,
         }
     }
+
     fn toggle_pause(&mut self) {
         let now = self.started.elapsed();
 
@@ -181,6 +191,7 @@ impl Gallery {
             self.clip_state.play(now);
         }
     }
+
     fn restart(&mut self) {
         let now = self.started.elapsed();
 
@@ -188,6 +199,7 @@ impl Gallery {
         self.clip_state.restart(now);
         self.paused = false;
     }
+
     fn variant(&mut self) {
         self.variant = if self.variant == Variant::Compact {
             Variant::Wide
@@ -195,14 +207,17 @@ impl Gallery {
             Variant::Compact
         };
     }
+
     fn replace(&mut self) {
         self.replacement = 1 - self.replacement;
         self.group.update([self.replacement]).unwrap();
     }
+
     fn reorder(&mut self) {
         move_item(&mut self.order, 0, 2).unwrap();
     }
 }
+
 impl Render for Gallery {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let now = self.started.elapsed();
@@ -664,6 +679,7 @@ impl Render for Gallery {
             .child(clip.apply(label("Prepared clip · reverse playback")))
     }
 }
+
 fn main() {
     gpui_platform::application().run(|cx: &mut App| {
         cx.on_action(|_: &Quit, cx| cx.quit());

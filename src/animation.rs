@@ -23,11 +23,13 @@ pub enum AnimationError {
     /// A stagger index must belong to a nonempty collection.
     Index,
 }
+
 impl fmt::Display for AnimationError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "invalid animation input: {self:?}")
     }
 }
+
 impl Error for AnimationError {}
 
 /// One timed target. A missing target holds the previous value, or current presentation at zero.
@@ -37,6 +39,7 @@ pub struct Keyframe {
     target: Option<Target>,
     easing: Easing,
 }
+
 impl Keyframe {
     /// A complete target at normalized progress `at`. Validated when preparing the clip.
     pub fn new(at: f64, target: Target) -> Self {
@@ -46,6 +49,7 @@ impl Keyframe {
             easing: Easing::default(),
         }
     }
+
     /// A wildcard: current presentation at zero, otherwise hold the preceding target.
     pub fn current(at: f64) -> Self {
         Self {
@@ -54,6 +58,7 @@ impl Keyframe {
             easing: Easing::default(),
         }
     }
+
     /// Easing for the segment ending at this keyframe.
     pub fn easing(mut self, easing: Easing) -> Self {
         self.easing = easing;
@@ -61,6 +66,7 @@ impl Keyframe {
         self
     }
 }
+
 /// Additional cycles after the first cycle.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Repeat {
@@ -69,11 +75,13 @@ pub enum Repeat {
     /// Repeat until stopped or reduced motion snaps the animation.
     Forever,
 }
+
 impl Default for Repeat {
     fn default() -> Self {
         Self::Count(0)
     }
 }
+
 /// How repeated clips travel between their endpoints.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum RepeatMode {
@@ -85,12 +93,14 @@ pub enum RepeatMode {
     /// Reverse targets on alternate cycles, retaining forward easing/physics.
     Mirror,
 }
+
 #[derive(Clone, Debug, PartialEq)]
 struct Clip {
     frames: Vec<Keyframe>,
     duration: Duration,
     spring: Option<Spring>,
 }
+
 /// A prepared, cheaply cloned clip. Construct once outside rendering; clones share keyframes.
 #[derive(Clone, Debug)]
 pub struct Animation {
@@ -100,6 +110,7 @@ pub struct Animation {
     mode: RepeatMode,
     repeat_delay: Duration,
 }
+
 impl Animation {
     /// Prepares keyframes with normalized, strictly increasing times from zero to one.
     pub fn keyframes(
@@ -133,6 +144,7 @@ impl Animation {
             repeat_delay: Duration::ZERO,
         })
     }
+
     /// A tween from the current presentation, with explicit duration and easing.
     pub fn to(target: Target, duration: Duration, easing: Easing) -> Self {
         Self::keyframes(
@@ -144,6 +156,7 @@ impl Animation {
         )
         .expect("valid two-frame clip")
     }
+
     /// A finite physical spring clip from current position and velocity.
     /// `duration` is an explicit deadline: the endpoint snaps exactly at that time.
     /// Use ordinary `Motion` springs for unconstrained, tolerance-based settling.
@@ -154,12 +167,14 @@ impl Animation {
 
         animation
     }
+
     /// Holds the first presentation before playback starts.
     pub fn delay(mut self, duration: Duration) -> Self {
         self.delay = duration;
 
         self
     }
+
     /// Sets repeat count/mode and the hold between cycles.
     pub fn repeat(
         mut self,
@@ -177,6 +192,7 @@ impl Animation {
 
         Ok(self)
     }
+
     /// Total duration, including initial/inter-cycle holds; `None` denotes infinity.
     pub fn duration(&self) -> Option<Duration> {
         match self.repeat {
@@ -193,6 +209,7 @@ impl Animation {
             ),
         }
     }
+
     fn same(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.clip, &other.clip)
             && self.delay == other.delay
@@ -200,6 +217,7 @@ impl Animation {
             && self.mode == other.mode
             && self.repeat_delay == other.repeat_delay
     }
+
     fn resolve(&self, time: Duration, origin: Frame, force_end: bool) -> (Frame, u64, bool) {
         let duration = self.clip.duration.as_secs_f64();
         let period = duration + self.repeat_delay.as_secs_f64();
@@ -371,6 +389,7 @@ impl Animation {
         )
     }
 }
+
 fn origin_velocities(frame: Frame) -> [f64; 6] {
     let basic = frame.velocity();
     let layout = frame.layout_velocity();
@@ -394,6 +413,7 @@ pub struct Playback {
     paused: bool,
     last: Duration,
 }
+
 impl Default for Playback {
     fn default() -> Self {
         Self {
@@ -405,6 +425,7 @@ impl Default for Playback {
         }
     }
 }
+
 impl Playback {
     /// Virtual playhead at a monotonic real timestamp. Backward real timestamps are held.
     pub fn time(&mut self, now: Duration) -> Duration {
@@ -420,12 +441,14 @@ impl Playback {
 
         Duration::try_from_secs_f64(seconds.max(0.0)).unwrap_or(Duration::MAX)
     }
+
     /// Freezes at the current playhead.
     pub fn pause(&mut self, now: Duration) {
         self.offset = self.time(now).as_secs_f64();
         self.anchor = now.max(self.last).max(self.anchor);
         self.paused = true;
     }
+
     /// Resumes from the current playhead.
     pub fn play(&mut self, now: Duration) {
         if self.paused {
@@ -433,12 +456,14 @@ impl Playback {
             self.paused = false;
         }
     }
+
     /// Sets the playhead without changing speed or paused state.
     pub fn seek(&mut self, time: Duration, now: Duration) {
         self.last = self.last.max(now);
         self.offset = time.as_secs_f64();
         self.anchor = now.max(self.last).max(self.anchor);
     }
+
     /// Sets finite playback speed. Zero holds; negative speed plays toward zero.
     pub fn set_speed(&mut self, speed: f64, now: Duration) -> Result<(), AnimationError> {
         if !speed.is_finite() {
@@ -451,6 +476,7 @@ impl Playback {
 
         Ok(())
     }
+
     /// Whether this clock advances.
     pub fn is_playing(&self) -> bool {
         !self.paused && self.speed != 0.0
@@ -470,11 +496,13 @@ pub struct AnimationState {
     #[cfg(feature = "gpui")]
     pub(crate) epoch: Instant,
 }
+
 impl Default for AnimationState {
     fn default() -> Self {
         Self::new(Target::default())
     }
 }
+
 impl AnimationState {
     /// Seeds the presentation before the first clip. No work or timers are started.
     pub fn new(initial: Target) -> Self {
@@ -490,6 +518,7 @@ impl AnimationState {
             epoch: Instant::now(),
         }
     }
+
     /// Samples a retained prepared clip; cloning an `Animation` preserves its identity.
     /// Rebuilding a clip intentionally restarts it. Reduced motion finishes even infinite clips.
     pub fn sample(&mut self, animation: &Animation, now: Duration, reduced_motion: bool) -> Frame {
@@ -555,26 +584,32 @@ impl AnimationState {
 
         self.current
     }
+
     /// Pauses playback; call the host's notify method after controls change.
     pub fn pause(&mut self, now: Duration) {
         self.clock.pause(now);
     }
+
     /// Resumes playback.
     pub fn play(&mut self, now: Duration) {
         self.clock.play(now);
     }
+
     /// Stops at the current presentation. Use play to resume, or restart to reset.
     pub fn stop(&mut self, now: Duration) {
         self.pause(now);
     }
+
     /// Seeks to a virtual playhead, including initial delay and repeats.
     pub fn seek(&mut self, time: Duration, now: Duration) {
         self.clock.seek(time, now);
     }
+
     /// Changes playback speed; negative speed is supported after seeking forward.
     pub fn set_speed(&mut self, speed: f64, now: Duration) -> Result<(), AnimationError> {
         self.clock.set_speed(speed, now)
     }
+
     /// Restarts the same clip from its captured origin.
     pub fn restart(&mut self, now: Duration) {
         self.clock.seek(Duration::ZERO, now);
@@ -582,14 +617,17 @@ impl AnimationState {
         self.force_end = false;
         self.complete = false;
     }
+
     /// Finishes immediately on the next sample, including an infinite clip.
     pub fn finish(&mut self) {
         self.force_end = true;
     }
+
     /// Current repeat iteration, zero based.
     pub fn iteration(&self) -> u64 {
         self.iteration
     }
+
     /// Whether controls permit time to advance.
     pub fn is_playing(&self) -> bool {
         self.clock.is_playing()
@@ -606,6 +644,7 @@ pub enum StaggerFrom {
     /// Center children start first.
     Center,
 }
+
 /// Computes a child's delay without allocating. Center origins support half-step offsets.
 pub fn stagger(
     step: Duration,
@@ -632,6 +671,7 @@ struct Track {
     animation: Animation,
     state: AnimationState,
 }
+
 /// A retained, allocation-free-at-sample timeline. Tracks target separate caller-owned elements.
 #[derive(Debug, Default)]
 pub struct Timeline {
@@ -642,6 +682,7 @@ pub struct Timeline {
     labels: Vec<(String, Duration)>,
     active: bool,
 }
+
 impl Timeline {
     /// Adds an absolute-positioned track. Returns its stable index.
     pub fn at(&mut self, at: Duration, animation: Animation) -> usize {
@@ -662,6 +703,7 @@ impl Timeline {
 
         self.tracks.len() - 1
     }
+
     /// Appends after the previously inserted track; an infinite predecessor is rejected.
     pub fn then(&mut self, animation: Animation) -> Result<usize, AnimationError> {
         let at = if self.tracks.is_empty() {
@@ -672,6 +714,7 @@ impl Timeline {
 
         Ok(self.at(at, animation))
     }
+
     /// Records a label at the current finite sequence cursor.
     pub fn label(&mut self, name: impl Into<String>) -> Result<(), AnimationError> {
         let name = name.into();
@@ -690,6 +733,7 @@ impl Timeline {
 
         Ok(())
     }
+
     /// Adds an overlapping track relative to a previously recorded label.
     pub fn at_label(
         &mut self,
@@ -706,6 +750,7 @@ impl Timeline {
 
         Ok(self.at(at.saturating_add(offset), animation))
     }
+
     /// Starts this timeline's clock at zero at an application timestamp.
     pub fn restart(&mut self, now: Duration) {
         self.clock.seek(Duration::ZERO, now);
@@ -715,22 +760,27 @@ impl Timeline {
             track.state.restart(now);
         }
     }
+
     /// Pauses the whole timeline.
     pub fn pause(&mut self, now: Duration) {
         self.clock.pause(now);
     }
+
     /// Resumes the whole timeline.
     pub fn play(&mut self, now: Duration) {
         self.clock.play(now);
     }
+
     /// Scrubs all tracks, including backward seeks.
     pub fn seek(&mut self, time: Duration, now: Duration) {
         self.clock.seek(time, now);
     }
+
     /// Changes the whole timeline playback rate, including negative playback.
     pub fn set_speed(&mut self, speed: f64, now: Duration) -> Result<(), AnimationError> {
         self.clock.set_speed(speed, now)
     }
+
     /// Samples all tracks into a retained buffer. No allocation occurs here.
     pub fn sample(&mut self, now: Duration, reduced_motion: bool) -> &[Frame] {
         let playhead = self.clock.time(now);
@@ -762,6 +812,7 @@ impl Timeline {
 
         &self.frames
     }
+
     /// Whether sampled tracks or future tracks require another frame.
     pub fn is_animating(&self) -> bool {
         self.active

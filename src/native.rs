@@ -141,6 +141,7 @@ impl crate::SvgFrame {
                 px(self.target().translation()[1]),
             ))
     }
+
     /// Converts with a custom pivot expressed as logical pixels from the SVG's
     /// top-left. Supply its untransformed bounds size. Translation compensates
     /// for CE's fixed center origin. Native layout/hitbox remain unchanged.
@@ -181,6 +182,7 @@ impl crate::SvgFrame {
             finite(ty + dy - (sin * sx * dx + cos * sy * dy)),
         ))
     }
+
     /// Applies GPU scale/rotation to one CE SVG drawing around its bounds center.
     /// Native layout and hitbox stay unchanged, and clipping follows CE's existing
     /// axis-aligned masks. This does not transform surrounding divs, text, or children.

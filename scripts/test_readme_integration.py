@@ -29,6 +29,23 @@ class ReadmeIntegrationTests(unittest.TestCase):
             self.assertEqual(check(PROJECT, readme), 0)
             self.assertEqual(readme.read_text(), markdown.replace('1;\n', '1;\n\n').replace('type";\n', 'type";\n\n'))
 
+    def test_readme_definition_spacing_fails_and_fixes(self):
+        markdown = 'Keep this text.\n\n```rust\nstruct First;\n/// A separate type.\n#[derive(Debug)]\nstruct Second;\nimpl Second {\n    fn first() {}\n    /// Another method.\n    fn second() {}\n}\n```\n'
+
+        with tempfile.TemporaryDirectory() as directory, redirect_stdout(StringIO()) as output:
+            readme = Path(directory) / 'README.md'
+            readme.write_text(markdown)
+
+            self.assertEqual(check(PROJECT, readme), 1)
+            self.assertIn(f'{readme}:4:', output.getvalue())
+            self.assertEqual(check(PROJECT, readme, fix=True), 0)
+            self.assertEqual(check(PROJECT, readme), 0)
+            expected = markdown.replace('struct First;\n', 'struct First;\n\n')
+            expected = expected.replace('struct Second;\n', 'struct Second;\n\n')
+            expected = expected.replace('fn first() {}\n', 'fn first() {}\n\n')
+
+            self.assertEqual(readme.read_text(), expected)
+
     def test_source_warnings_fail_the_ci_command(self):
         metadata = json.loads(subprocess.check_output(
             ['cargo', 'metadata', '--no-deps', '--format-version=1', '--manifest-path', str(PROJECT / 'Cargo.toml')],
@@ -39,17 +56,20 @@ class ReadmeIntegrationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory, redirect_stdout(StringIO()) as output:
             consumer = Path(directory)
             (consumer / 'src').mkdir()
+            subprocess.run(['git', 'init', '--quiet', str(consumer)], check=True)
             manifest = consumer_manifest(PROJECT, libraries) + '\n[features]\ndemo = []\nnative-tests = []\n'
             (consumer / 'Cargo.toml').write_text(manifest)
             (consumer / 'Cargo.lock').write_bytes((PROJECT / 'Cargo.lock').read_bytes())
             source = consumer / 'src/lib.rs'
-            source.write_text('fn sample() {\n    let value = 1;\n    println!("{value}");\n}\n')
+            source.write_text('struct First;\nstruct Second;\n\nfn sample() {\n    let value = 1;\n    println!("{value}");\n}\n')
             subprocess.run(['cargo', 'metadata', '--no-deps', '--format-version=1', '--manifest-path', str(consumer / 'Cargo.toml')], capture_output=True, check=True)
 
             self.assertEqual(check_sources(consumer), 1)
-            self.assertIn('insert a blank line', output.getvalue())
+            self.assertIn('insert a blank line between statements', output.getvalue())
+            self.assertIn('insert a blank line between definitions', output.getvalue())
 
-            source.write_text(source.read_text().replace('1;\n', '1;\n\n'))
+            self.assertEqual(check_sources(consumer, fix=True), 0, output.getvalue())
+            self.assertIn('struct First;\n\nstruct Second;', source.read_text())
 
             self.assertEqual(check_sources(consumer), 0)
 

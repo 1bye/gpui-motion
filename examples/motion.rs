@@ -5,6 +5,7 @@ use gpui::{
     App, Bounds, Context, FocusHandle, KeyBinding, Menu, MenuItem, TitlebarOptions, Window,
     WindowBounds, WindowOptions, actions, div, prelude::*, px, rgb, size,
 };
+
 use gpui_ce_motion::{Easing, Motion, MotionState, Target, Transition};
 use std::time::Duration;
 
@@ -30,16 +31,20 @@ actions!(
 
 // A small local palette keeps the example independent of any component framework.
 struct Palette;
+
 impl Palette {
     fn background() -> gpui::Rgba {
         rgb(0x18181b)
     }
+
     fn foreground() -> gpui::Rgba {
         rgb(0xf4f4f5)
     }
+
     fn muted() -> gpui::Rgba {
         rgb(0xa1a1aa)
     }
+
     fn card() -> gpui::Rgba {
         rgb(0x303a50)
     }

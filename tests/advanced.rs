@@ -3,12 +3,15 @@
 //! Requires: no features; native conversion assertions additionally use gpui.
 use gpui_ce_motion::*;
 use std::time::Duration;
+
 fn ms(value: u64) -> Duration {
     Duration::from_millis(value)
 }
+
 fn near(a: f64, b: f64) {
     assert!((a - b).abs() < 1e-6, "{a} != {b}");
 }
+
 #[test]
 fn visual_springs_reach_ninety_percent_at_requested_time_and_retarget_continuously() {
     for bounce in [-0.5, 0., 0.5, 0.9] {
@@ -30,6 +33,7 @@ fn visual_springs_reach_ninety_percent_at_requested_time_and_retarget_continuous
     assert!(Spring::visual(ms(500), 1.).is_err());
     assert!(Spring::visual(ms(500), f32::NAN).is_err());
 }
+
 #[test]
 fn settling_tolerances_and_custom_easing_are_public_and_validated() {
     let spring = Spring::default().rest(100., 10000.).unwrap();
@@ -59,6 +63,7 @@ fn settling_tolerances_and_custom_easing_are_public_and_validated() {
     near(value.sample(ms(750), false).value(), 56.25);
     assert!(CustomEasing::new(|_| (0., 1.)).is_err());
 }
+
 #[test]
 fn style_tracks_interpolate_colors_and_individual_properties_without_losing_omissions() {
     let mut state = StyleMotionState::default();
@@ -109,6 +114,7 @@ fn style_tracks_interpolate_colors_and_individual_properties_without_losing_omis
     );
     assert!(std::panic::catch_unwind(|| StyleTarget::default().padding([-1.; 4])).is_err());
 }
+
 #[test]
 fn style_spring_interruption_is_continuous_and_reduced_motion_does_not_replay() {
     let mut state = StyleMotionState::default();
@@ -138,6 +144,7 @@ fn style_spring_interruption_is_continuous_and_reduced_motion_does_not_replay() 
     );
     assert!(!state.sample(second, ms(82), false).is_animating());
 }
+
 #[test]
 fn svg_translation_preserves_momentum_on_interruption() {
     let mut state = SvgMotionState::default();
@@ -157,9 +164,11 @@ fn svg_translation_preserves_momentum_on_interruption() {
         [-100., 60.]
     );
 }
+
 fn line(x: f64) -> PathShape {
     PathShape::new([PathCommand::Move([0., 0.]), PathCommand::Line([x, 0.])]).unwrap()
 }
+
 #[test]
 fn path_morphing_is_transactional_interruptible_and_clock_independent() {
     let initial = line(100.);
@@ -203,6 +212,7 @@ fn path_morphing_is_transactional_interruptible_and_clock_independent() {
     assert!(!done.is_animating());
     assert!(done.just_completed());
 }
+
 #[test]
 fn stroke_reveal_offsets_gaps_and_subpaths_use_total_measured_length() {
     let mut state = PathMorphState::new(line(100.));
@@ -251,6 +261,7 @@ fn stroke_reveal_offsets_gaps_and_subpaths_use_total_measured_length() {
     });
     near(total, 20.);
 }
+
 #[test]
 fn paths_validate_geometry_and_preserve_curve_controls() {
     assert!(PathShape::new([]).is_err());
@@ -271,6 +282,7 @@ fn paths_validate_geometry_and_preserve_curve_controls() {
     near(frame.length(), 100.);
     assert_eq!(frame.commands(), shape.commands());
 }
+
 #[cfg(feature = "gpui")]
 #[test]
 fn native_pivot_and_style_adapter_use_stock_ce_types() {

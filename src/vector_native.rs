@@ -2,21 +2,26 @@
 use crate::{
     Color, MotionValue, PathCommand, PathError, PathMorphState, PathShape, StrokeReveal, Transition,
 };
+
 use gpui::{
     App, Bounds, Element, ElementId, GlobalElementId, InspectorElementId, IntoElement, LayoutId,
     Path, PathBuilder, Pixels, Style, Window, point, px, size,
 };
+
 use std::{cell::RefCell, rc::Rc, time::Instant};
+
 struct Data {
     morph: PathMorphState,
     epoch: Option<Instant>,
     reveal: [MotionValue; 3],
     error: Option<PathError>,
 }
+
 /// Retain one vector state per drawing. Clones share morph/reveal storage.
 /// Path sampling allocates no memory; native tessellation/paint preparation does.
 #[derive(Clone)]
 pub struct VectorState(Rc<RefCell<Data>>);
+
 impl VectorState {
     /// Creates prepared coordinate/reveal state.
     ///
@@ -39,10 +44,12 @@ impl VectorState {
             error: None,
         })))
     }
+
     /// Most recent native tessellation error; invalid topology is returned by `element`.
     pub fn error(&self) -> Option<PathError> {
         self.0.borrow().error
     }
+
     /// Creates a native drawing, validating topology before any mutation.
     /// Geometry uses logical coordinates relative to the fixed reservation.
     pub fn element(
@@ -70,6 +77,7 @@ impl VectorState {
         })
     }
 }
+
 /// Fixed-size native vector drawing. This paints vector geometry, not an SVG
 /// sprite or a GPUI subtree; it does not install pointer semantics.
 pub struct VectorElement {
@@ -82,6 +90,7 @@ pub struct VectorElement {
     transition: Transition,
     reveal: StrokeReveal,
 }
+
 impl VectorElement {
     /// Selects coordinate and stroke reveal timing.
     pub fn transition(mut self, transition: Transition) -> Self {
@@ -89,12 +98,14 @@ impl VectorElement {
 
         self
     }
+
     /// Selects full-path fill. Reveal applies only to strokes.
     pub fn fill(mut self) -> Self {
         self.stroke = None;
 
         self
     }
+
     /// Selects a finite positive stroke width.
     pub fn stroke(mut self, width: f32) -> Self {
         assert!(width.is_finite() && width > 0.);
@@ -102,6 +113,7 @@ impl VectorElement {
 
         self
     }
+
     /// Animates normalized path length/offset/spacing. Springs are clamped at the
     /// drawing boundary; the coordinate/reveal momentum remains retained.
     pub fn reveal(mut self, reveal: StrokeReveal) -> Self {
@@ -110,21 +122,27 @@ impl VectorElement {
         self
     }
 }
+
 impl IntoElement for VectorElement {
     type Element = Self;
+
     fn into_element(self) -> Self {
         self
     }
 }
+
 impl Element for VectorElement {
     type RequestLayoutState = ();
     type PrepaintState = Option<Path<Pixels>>;
+
     fn id(&self) -> Option<ElementId> {
         Some(self.id.clone())
     }
+
     fn source_location(&self) -> Option<&'static std::panic::Location<'static>> {
         None
     }
+
     fn request_layout(
         &mut self,
         _: Option<&GlobalElementId>,
@@ -140,6 +158,7 @@ impl Element for VectorElement {
 
         (w.request_layout(style, [], cx), ())
     }
+
     fn prepaint(
         &mut self,
         _: Option<&GlobalElementId>,
@@ -232,6 +251,7 @@ impl Element for VectorElement {
             }
         }
     }
+
     fn paint(
         &mut self,
         _: Option<&GlobalElementId>,

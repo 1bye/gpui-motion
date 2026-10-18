@@ -2,9 +2,11 @@
 //! Real: portable layout sampler and scalar engine. Doubles: none. Requires: none.
 use gpui_ce_motion::{Easing, LayoutPositionState, Transition};
 use std::time::Duration;
+
 fn ms(n: u64) -> Duration {
     Duration::from_millis(n)
 }
+
 #[test]
 fn first_measurement_snaps_and_later_measurements_return_compensating_offsets() {
     let mut state = LayoutPositionState::default();
@@ -30,6 +32,7 @@ fn first_measurement_snaps_and_later_measurements_return_compensating_offsets() 
             .just_completed()
     );
 }
+
 #[test]
 fn midflight_relayout_preserves_presented_position_and_spring_velocity() {
     let mut state = LayoutPositionState::default();
@@ -52,6 +55,7 @@ fn midflight_relayout_preserves_presented_position_and_spring_velocity() {
             > after.position()[0]
     );
 }
+
 #[test]
 fn retargeting_between_samples_advances_the_previous_trajectory() {
     let mut coarse = LayoutPositionState::default();
@@ -72,6 +76,7 @@ fn retargeting_between_samples_advances_the_previous_trajectory() {
     assert_eq!(a.position(), b.position());
     assert_eq!(a.velocity(), b.velocity());
 }
+
 #[test]
 fn tween_retargeting_and_backward_timestamps_preserve_position() {
     let transition = Transition::Tween(ms(1000), Easing::Linear);
@@ -101,6 +106,7 @@ fn tween_retargeting_and_backward_timestamps_preserve_position() {
         [0., 0.]
     );
 }
+
 #[test]
 fn reduced_motion_and_instant_transitions_stop_without_replaying() {
     for transition in [Transition::default(), Transition::Instant] {
@@ -119,6 +125,7 @@ fn reduced_motion_and_instant_transitions_stop_without_replaying() {
         );
     }
 }
+
 #[test]
 fn reset_uses_the_next_position_as_a_fresh_mount() {
     let mut state = LayoutPositionState::default();
@@ -132,6 +139,7 @@ fn reset_uses_the_next_position_as_a_fresh_mount() {
     assert_eq!(frame.offset(), [0., 0.]);
     assert!(!frame.is_animating());
 }
+
 #[test]
 fn invalid_measured_positions_are_rejected() {
     for bad in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {

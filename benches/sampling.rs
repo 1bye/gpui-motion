@@ -7,6 +7,7 @@ use gpui_ce_motion::{
     StyleMotion, StyleMotionState, StyleTarget, SvgMotion, SvgMotionState, SvgTarget, Target,
     Transition,
 };
+
 use std::{
     hint::black_box,
     time::{Duration, Instant},
@@ -87,6 +88,7 @@ fn advanced(label: &str, mut sample: impl FnMut(Duration)) {
         batches[12] / 1000.0
     );
 }
+
 fn main() {
     println!(
         "retained bytes/state: MotionState {}, AnimationState {}, ColorState {}, Drag {}",

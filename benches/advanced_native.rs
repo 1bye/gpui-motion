@@ -2,9 +2,11 @@
 //! 100 elements, 5 batches x 240 measured frames after 24 warmup frames.
 #[path = "../tests/common/activation.rs"]
 mod activation;
+
 use gpui::{AppContext, Context, Render, TestAppContext, Window, div, prelude::*, px, rgb, size};
 use gpui_ce_motion::*;
 use std::time::{Duration, Instant};
+
 #[derive(Clone, Copy)]
 enum Mode {
     Direct,
@@ -17,6 +19,7 @@ enum Mode {
     Shared,
     Vector,
 }
+
 fn shape(curved: bool) -> PathShape {
     PathShape::new([
         PathCommand::Move([0., 8.]),
@@ -28,6 +31,7 @@ fn shape(curved: bool) -> PathShape {
     ])
     .unwrap()
 }
+
 struct Board {
     mode: Mode,
     expanded: bool,
@@ -41,6 +45,7 @@ struct Board {
     paths: [PathShape; 2],
     motions: Vec<MotionState>,
 }
+
 impl Render for Board {
     fn render(&mut self, w: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let epoch = *self
@@ -165,6 +170,7 @@ impl Render for Board {
             .child(self.pop.container("pop-container", board))
     }
 }
+
 fn run(mode: Mode, label: &str) {
     let mut batches = Vec::new();
     let mut frames = Vec::new();
@@ -239,6 +245,7 @@ fn run(mode: Mode, label: &str) {
         frames[(frames.len() as f64 * 0.95) as usize]
     );
 }
+
 fn main() {
     for (mode, label) in [
         (Mode::Direct, "direct reflow"),

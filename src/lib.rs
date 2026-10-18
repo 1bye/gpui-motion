@@ -60,9 +60,11 @@ mod value;
 mod native;
 
 pub use motion::{Frame, Motion, MotionState, Presence, Property, Target};
+
 pub use transition::{
     Bezier, CustomEasing, Easing, InvalidEasing, InvalidSpring, Spring, Transition,
 };
+
 pub use value::{Inertia, MotionValue, ValueFrame};
 
 pub use animation::{
@@ -71,6 +73,7 @@ pub use animation::{
 };
 
 pub use color::{Color, ColorState};
+
 pub use interaction::{
     Drag, GestureTargets, InView, Interaction, Variants, move_item, reorder_index, scroll_progress,
     transform,
@@ -85,40 +88,53 @@ pub use layout::{LayoutPositionFrame, LayoutPositionState};
 pub use layout_native::{LayoutGroup, LayoutPositionElement};
 
 mod style_motion;
+
 pub use style_motion::{
     ColorProperty, StyleFrame, StyleMotion, StyleMotionState, StyleProperty, StyleTarget,
 };
 
 #[cfg(feature = "gpui")]
 mod measured_size;
+
 #[cfg(feature = "gpui")]
 pub use measured_size::{AutoSize, SizeAxis};
+
 #[cfg(feature = "gpui")]
 mod pop_layout;
+
 #[cfg(feature = "gpui")]
 pub use pop_layout::{PopElement, PopLayout, PopRequest};
 
 #[cfg(feature = "gpui")]
 mod gesture_native;
+
 #[cfg(feature = "gpui")]
 pub use gesture_native::{GestureElement, GestureState};
+
 #[cfg(feature = "gpui")]
 mod scroll_native;
+
 #[cfg(feature = "gpui")]
 pub use scroll_native::{Axis, ScrollMotion, native_scroll_progress};
 
 #[cfg(feature = "gpui")]
 mod shared_layout;
+
 #[cfg(feature = "gpui")]
 pub use shared_layout::{SharedElement, SharedLayout};
+
 #[cfg(feature = "gpui")]
 mod reorder_native;
+
 #[cfg(feature = "gpui")]
 pub use reorder_native::{ReorderElement, ReorderGroup};
 
 mod vector;
+
 pub use vector::{PathCommand, PathError, PathFrame, PathMorphState, PathShape, StrokeReveal};
+
 #[cfg(feature = "gpui")]
 mod vector_native;
+
 #[cfg(feature = "gpui")]
 pub use vector_native::{VectorElement, VectorState};

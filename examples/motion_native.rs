@@ -7,8 +7,10 @@ use gpui::{
     App, Bounds, Context, Div, FocusHandle, KeyBinding, Menu, MenuItem, Render, Role, Stateful,
     TitlebarOptions, Window, WindowBounds, WindowOptions, actions, div, prelude::*, px, rgb, size,
 };
+
 use gpui_ce_motion::*;
 use std::{cell::Cell, rc::Rc, time::Duration};
+
 actions!(
     native_gallery,
     [
@@ -30,6 +32,7 @@ actions!(
         Quit,
     ]
 );
+
 fn button(id: impl Into<gpui::ElementId>, label: impl Into<gpui::SharedString>) -> Stateful<Div> {
     let label = label.into();
 
@@ -47,6 +50,7 @@ fn button(id: impl Into<gpui::ElementId>, label: impl Into<gpui::SharedString>) 
         .focus_visible(|s| s.border_color(rgb(0xffd4a0)))
         .child(label)
 }
+
 fn shape(alternate: bool) -> PathShape {
     PathShape::new([
         PathCommand::Move([20., 80.]),
@@ -64,6 +68,7 @@ fn shape(alternate: bool) -> PathShape {
     ])
     .expect("compatible prepared geometry")
 }
+
 struct Gallery {
     root: FocusHandle,
     page: usize,
@@ -88,6 +93,7 @@ struct Gallery {
     styles: StyleMotionState,
     clicks: usize,
 }
+
 impl Gallery {
     fn transition(&self) -> Transition {
         if self.tween {
@@ -96,6 +102,7 @@ impl Gallery {
             Transition::Spring(self.spring)
         }
     }
+
     fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
         let root = cx.focus_handle();
 
@@ -139,6 +146,7 @@ impl Gallery {
             clicks: 0,
         }
     }
+
     fn layout(&mut self, window: &mut Window, cx: &mut Context<Self>) -> gpui::AnyElement {
         let transition = self.transition();
 
@@ -238,6 +246,7 @@ impl Gallery {
             .child(self.pop.container("pop-container", row))
             .into_any_element()
     }
+
     fn input(&mut self, _: &mut Window, cx: &mut Context<Self>) -> gpui::AnyElement {
         let control = button("drag-card", "Drag or use arrows")
             .w(px(170.))
@@ -276,6 +285,7 @@ impl Gallery {
             .child(div().id("scroll-box").w(px(480.)).h(px(160.)).overflow_scroll().track_scroll(&self.scroll)
                 .child(div().flex().flex_col().children((0..12).map(|i|div().h(px(36.)).flex_shrink_0().p_2().bg(rgb(if i%2==0{0x26374d}else{0x202c40})).child(format!("Native scroll row {}",i+1)))))).into_any_element()
     }
+
     fn reorder(&self) -> gpui::AnyElement {
         let mut list = div().flex().flex_col().gap_3().w(px(340.));
 
@@ -298,6 +308,7 @@ impl Gallery {
         div().flex().flex_col().gap_4().child("Drag an item. Alt+Up / Alt+Down moves the focused item. Escape restores a pointer gesture's original order.")
             .child(list).child(format!("Committed reorder operations: {}",self.commits.get())).into_any_element()
     }
+
     fn shared(&self) -> gpui::AnyElement {
         let first = div()
             .absolute()
@@ -331,6 +342,7 @@ impl Gallery {
                 .child(self.shared.member(0,"shared-second",self.alternate,second).transition(self.transition())))
             .child("Both appearances share a position and crossfade. Their sizes change immediately; no size projection is applied.").into_any_element()
     }
+
     fn vector(&mut self, window: &mut Window, cx: &mut Context<Self>) -> gpui::AnyElement {
         let transition = self.transition();
 
@@ -391,6 +403,7 @@ impl Gallery {
             .child(format!("SVG pivot: {} · Native path error: {:?}",if self.pivot{"top-left"}else{"center"},self.vector.error()))
             .child("Curve-length stroke drawing is approximated with 32 segments per curve. SVG layout and hitboxes stay fixed.").into_any_element()
     }
+
     fn styles(&mut self, window: &mut Window, cx: &mut Context<Self>) -> gpui::AnyElement {
         let target = StyleTarget::default()
             .padding([if self.alternate { 28. } else { 12. }; 4])
@@ -434,6 +447,7 @@ impl Gallery {
             .child("The visual spring reaches 90% of a resting step at 450 ms; T selects an 800 ms tween.").into_any_element()
     }
 }
+
 impl Render for Gallery {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let mut pages = div().flex().gap_2();
@@ -559,6 +573,7 @@ impl Render for Gallery {
             )
     }
 }
+
 fn main() {
     let assets = common::SvgAsset(include_bytes!("assets/motion.svg"));
 

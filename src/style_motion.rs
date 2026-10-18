@@ -1,6 +1,7 @@
 //! Declarative native style tracks, separate from positional/presence targets.
 use crate::{Color, ColorState, MotionValue, Transition};
 use std::time::Duration;
+
 /// Scalar style properties in logical pixels. Margins and shadow offsets/spread
 /// may be negative; the other properties require non-negative targets.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -55,7 +56,9 @@ pub enum StyleProperty {
     /// BackdropBlur in logical pixels.
     BackdropBlur,
 }
+
 const COUNT: usize = 24;
+
 /// Native color tracks, interpolated in linear light.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(usize)]
@@ -69,9 +72,11 @@ pub enum ColorProperty {
     /// A single outer shadow's paint.
     Shadow,
 }
+
 fn signed(index: usize) -> bool {
     (12..16).contains(&index) || [18, 19, 21].contains(&index)
 }
+
 /// Partial style destination. Omitted properties preserve the element's styles
 /// until introduced; subsequently they retain their last declared destination.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -79,6 +84,7 @@ pub struct StyleTarget {
     values: [Option<f64>; COUNT],
     colors: [Option<Color>; 4],
 }
+
 impl StyleTarget {
     /// Sets a scalar. Panics for non-finite or disallowed negative values.
     pub fn value(mut self, property: StyleProperty, value: f32) -> Self {
@@ -92,12 +98,14 @@ impl StyleTarget {
 
         self
     }
+
     /// Sets a color track.
     pub fn color(mut self, property: ColorProperty, color: Color) -> Self {
         self.colors[property as usize] = Some(color);
 
         self
     }
+
     /// Reads a scalar presentation, with non-negative properties clamped for drawing.
     pub fn get(self, property: StyleProperty) -> Option<f32> {
         let index = property as usize;
@@ -113,10 +121,12 @@ impl StyleTarget {
             ) as f32
         })
     }
+
     /// Reads a presented color.
     pub fn get_color(self, property: ColorProperty) -> Option<Color> {
         self.colors[property as usize]
     }
+
     /// Sets corners clockwise from top-left.
     pub fn radii(mut self, values: [f32; 4]) -> Self {
         for (property, value) in [
@@ -133,6 +143,7 @@ impl StyleTarget {
 
         self
     }
+
     /// Sets border widths in top/right/bottom/left order.
     pub fn border_widths(mut self, values: [f32; 4]) -> Self {
         for (property, value) in [
@@ -149,6 +160,7 @@ impl StyleTarget {
 
         self
     }
+
     /// Sets padding in top/right/bottom/left order.
     pub fn padding(mut self, values: [f32; 4]) -> Self {
         for (property, value) in [
@@ -165,6 +177,7 @@ impl StyleTarget {
 
         self
     }
+
     /// Sets margins in top/right/bottom/left order.
     pub fn margin(mut self, values: [f32; 4]) -> Self {
         for (property, value) in [
@@ -181,11 +194,13 @@ impl StyleTarget {
 
         self
     }
+
     /// Sets horizontal and vertical gap.
     pub fn gap(self, x: f32, y: f32) -> Self {
         self.value(StyleProperty::GapX, x)
             .value(StyleProperty::GapY, y)
     }
+
     /// Sets a single outer shadow. No shadow-list topology interpolation is implied.
     pub fn shadow(self, offset: [f32; 2], blur: f32, spread: f32, color: Color) -> Self {
         self.value(StyleProperty::ShadowX, offset[0])
@@ -195,6 +210,7 @@ impl StyleTarget {
             .color(ColorProperty::Shadow, color)
     }
 }
+
 /// Disposable declaration of style destinations and timing.
 #[derive(Clone, Copy, Debug)]
 pub struct StyleMotion {
@@ -204,6 +220,7 @@ pub struct StyleMotion {
     overrides: [Option<Transition>; COUNT],
     color_overrides: [Option<Transition>; 4],
 }
+
 impl StyleMotion {
     /// Creates a destination. First mount snaps unless `initial` is supplied.
     pub fn new(target: StyleTarget) -> Self {
@@ -215,24 +232,28 @@ impl StyleMotion {
             color_overrides: [None; 4],
         }
     }
+
     /// Chooses the first presentation; omitted channels inherit the destination.
     pub fn initial(mut self, target: StyleTarget) -> Self {
         self.initial = Some(target);
 
         self
     }
+
     /// Sets default timing for all style tracks.
     pub fn transition(mut self, transition: Transition) -> Self {
         self.transition = transition;
 
         self
     }
+
     /// Overrides timing for one scalar track.
     pub fn transition_for(mut self, property: StyleProperty, transition: Transition) -> Self {
         self.overrides[property as usize] = Some(transition);
 
         self
     }
+
     /// Overrides timing for one color track.
     pub fn color_transition(mut self, property: ColorProperty, transition: Transition) -> Self {
         self.color_overrides[property as usize] = Some(transition);
@@ -240,6 +261,7 @@ impl StyleMotion {
         self
     }
 }
+
 /// Sampled style properties, ready to apply with the native feature.
 #[derive(Clone, Copy, Debug)]
 pub struct StyleFrame {
@@ -247,20 +269,24 @@ pub struct StyleFrame {
     active: bool,
     completed: bool,
 }
+
 impl StyleFrame {
     /// Presented style destination, with clamped readers.
     pub fn target(self) -> StyleTarget {
         self.target
     }
+
     /// Whether another sample is needed.
     pub fn is_animating(self) -> bool {
         self.active
     }
+
     /// Completion edge when every active scalar/color finishes.
     pub fn just_completed(self) -> bool {
         self.completed
     }
 }
+
 /// Retained allocation-free style sampler. Springs preserve each channel's
 /// momentum; fields omitted after introduction retain their destination.
 #[derive(Debug, Default)]
@@ -273,6 +299,7 @@ pub struct StyleMotionState {
     #[cfg(feature = "gpui")]
     epoch: Option<std::time::Instant>,
 }
+
 impl StyleMotionState {
     /// Samples using one monotonic application epoch. Reduced motion snaps.
     ///
@@ -355,6 +382,7 @@ impl StyleMotionState {
             completed,
         }
     }
+
     /// Samples and schedules using native time; invoke during rendering.
     #[cfg(feature = "gpui")]
     pub fn frame(
@@ -373,6 +401,7 @@ impl StyleMotionState {
         frame
     }
 }
+
 #[cfg(feature = "gpui")]
 impl StyleFrame {
     /// Applies only introduced style tracks. Blur/filter/shadow lists are replaced

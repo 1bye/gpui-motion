@@ -1,13 +1,16 @@
 //! A native single-axis reorder group with measured item geometry.
 use crate::{AnimationError, Axis, MotionValue, Transition, move_item};
+
 use gpui::{
     AnyElement, App, Bounds, DispatchPhase, Div, Element, ElementId, FocusHandle, GlobalElementId,
     Hitbox, HitboxBehavior, InspectorElementId, IntoElement, KeyDownEvent, LayoutId, MouseButton,
     MouseDownEvent, MouseMoveEvent, MouseUpEvent, Pixels, Stateful, Window, point, prelude::*, px,
 };
+
 // notify is a trait method in the official pin, inherent in registry CE 0.2.2.
 #[allow(unused_imports)]
 use gpui::AppContext;
+
 use std::{
     cell::{Ref, RefCell},
     collections::HashMap,
@@ -15,18 +18,22 @@ use std::{
     rc::Rc,
     time::Instant,
 };
+
 struct Metrics {
     bounds: Bounds<Pixels>,
     values: [MotionValue; 2],
     focus: FocusHandle,
 }
+
 struct Grab<K> {
     key: K,
     offset: f64,
     pointer: f64,
     original: Vec<K>,
 }
+
 type Change<K> = Rc<dyn Fn(&[K], &mut Window, &mut App)>;
+
 struct Data<K> {
     order: Vec<K>,
     metrics: HashMap<K, Metrics>,
@@ -35,6 +42,7 @@ struct Data<K> {
     epoch: Option<Instant>,
     change: Option<Change<K>>,
 }
+
 /// Retain in the view. Owns order, stable-key geometry and pointer gesture lifetime.
 /// Supports one-dimensional lists, variable item sizes, keyboard Alt+Arrow reorder,
 /// Escape/deactivation cancellation, and release outside item bounds. Supply native
@@ -42,6 +50,7 @@ struct Data<K> {
 /// restoration and scrolling/autoscroll policy; multi-column sorting is not implied.
 #[derive(Clone)]
 pub struct ReorderGroup<K>(Rc<RefCell<Data<K>>>);
+
 impl<K: Clone + Eq + Hash + 'static> ReorderGroup<K> {
     /// Creates a group, rejecting duplicate keys transactionally.
     ///
@@ -73,10 +82,12 @@ impl<K: Clone + Eq + Hash + 'static> ReorderGroup<K> {
             change: None,
         }))))
     }
+
     /// Current logical order. Drop this borrow before processing input or updating.
     pub fn order(&self) -> Ref<'_, [K]> {
         Ref::map(self.0.borrow(), |v| v.order.as_slice())
     }
+
     /// Registers a callback after pointer commit or keyboard reorder. The callback
     /// runs without borrowing group state and may update application entities.
     pub fn on_change(self, callback: impl Fn(&[K], &mut Window, &mut App) + 'static) -> Self {
@@ -84,6 +95,7 @@ impl<K: Clone + Eq + Hash + 'static> ReorderGroup<K> {
 
         self
     }
+
     /// Updates membership/order and cancels an active gesture. Duplicate keys fail
     /// without mutation. Invoke on model changes, not every render. Notify the view.
     pub fn set_order(&self, order: Vec<K>) -> Result<(), AnimationError> {
@@ -103,6 +115,7 @@ impl<K: Clone + Eq + Hash + 'static> ReorderGroup<K> {
 
         Ok(())
     }
+
     /// Wraps a styled item in measured position interpolation and native handlers.
     /// The key must belong to this group. Preserve the same CE ID through reorder.
     pub fn item(
@@ -121,11 +134,13 @@ impl<K: Clone + Eq + Hash + 'static> ReorderGroup<K> {
             transition: Transition::default(),
         }
     }
+
     /// Whether a pointer currently owns a reorder gesture.
     pub fn is_dragging(&self) -> bool {
         self.0.borrow().grab.is_some()
     }
 }
+
 /// Native measured reorder item.
 pub struct ReorderElement<K> {
     group: ReorderGroup<K>,
@@ -134,6 +149,7 @@ pub struct ReorderElement<K> {
     child: Option<Stateful<Div>>,
     transition: Transition,
 }
+
 impl<K> ReorderElement<K> {
     /// Selects sibling/release position timing.
     pub fn transition(mut self, transition: Transition) -> Self {
@@ -142,12 +158,14 @@ impl<K> ReorderElement<K> {
         self
     }
 }
+
 fn coordinate(bounds: Bounds<Pixels>, axis: Axis) -> (f64, f64) {
     match axis {
         Axis::X => (f64::from(bounds.origin.x), f64::from(bounds.size.width)),
         Axis::Y => (f64::from(bounds.origin.y), f64::from(bounds.size.height)),
     }
 }
+
 fn pointer(position: gpui::Point<Pixels>, axis: Axis) -> f64 {
     match axis {
         Axis::X => f64::from(position.x),
@@ -157,19 +175,24 @@ fn pointer(position: gpui::Point<Pixels>, axis: Axis) -> f64 {
 
 impl<K: Clone + Eq + Hash + 'static> IntoElement for ReorderElement<K> {
     type Element = Self;
+
     fn into_element(self) -> Self {
         self
     }
 }
+
 impl<K: Clone + Eq + Hash + 'static> Element for ReorderElement<K> {
     type RequestLayoutState = AnyElement;
     type PrepaintState = Hitbox;
+
     fn id(&self) -> Option<ElementId> {
         Some(self.id.clone())
     }
+
     fn source_location(&self) -> Option<&'static std::panic::Location<'static>> {
         None
     }
+
     fn request_layout(
         &mut self,
         _: Option<&GlobalElementId>,
@@ -218,6 +241,7 @@ impl<K: Clone + Eq + Hash + 'static> Element for ReorderElement<K> {
 
         (layout, child)
     }
+
     fn prepaint(
         &mut self,
         _: Option<&GlobalElementId>,
@@ -302,6 +326,7 @@ impl<K: Clone + Eq + Hash + 'static> Element for ReorderElement<K> {
 
         hitbox
     }
+
     fn paint(
         &mut self,
         _: Option<&GlobalElementId>,

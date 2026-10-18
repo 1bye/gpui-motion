@@ -1,10 +1,13 @@
 //! Native measured scroll-to-target mapping.
 use crate::{Motion, MotionState, Target, Transition};
+
 use gpui::{
     AnyElement, App, Bounds, Element, ElementId, GlobalElementId, InspectorElementId, IntoElement,
     LayoutId, Pixels, ScrollHandle, Styled, Window,
 };
+
 use std::time::Instant;
+
 /// Native scroll axis.
 #[derive(Clone, Copy, Debug)]
 pub enum Axis {
@@ -13,6 +16,7 @@ pub enum Axis {
     /// Vertical.
     Y,
 }
+
 /// Reads native scroll offsets and extents; unscrollable content returns zero.
 /// Handles CE's negative scroll offsets and positive maximum extents.
 pub fn native_scroll_progress(handle: &ScrollHandle, axis: Axis) -> f64 {
@@ -32,6 +36,7 @@ pub fn native_scroll_progress(handle: &ScrollHandle, axis: Axis) -> f64 {
         (-f64::from(offset) / max).clamp(0., 1.)
     }
 }
+
 /// Binds native scroll progress to partial numeric targets. Defaults to instant
 /// mapping; choose a spring for smoothing. Layout extent changes trigger a
 /// follow-up frame, so the previous measurement cannot remain stale after resize.
@@ -45,6 +50,7 @@ pub struct ScrollMotion<E> {
     to: Target,
     transition: Transition,
 }
+
 impl<E> ScrollMotion<E> {
     /// Creates a measured scroll binding.
     pub fn new(
@@ -65,6 +71,7 @@ impl<E> ScrollMotion<E> {
             transition: Transition::Instant,
         }
     }
+
     /// Selects optional smoothing.
     pub fn transition(mut self, transition: Transition) -> Self {
         self.transition = transition;
@@ -72,26 +79,33 @@ impl<E> ScrollMotion<E> {
         self
     }
 }
+
 struct History {
     state: MotionState,
     epoch: Instant,
     progress: f64,
 }
+
 impl<E: IntoElement + Styled + 'static> IntoElement for ScrollMotion<E> {
     type Element = Self;
+
     fn into_element(self) -> Self {
         self
     }
 }
+
 impl<E: IntoElement + Styled + 'static> Element for ScrollMotion<E> {
     type RequestLayoutState = AnyElement;
     type PrepaintState = ();
+
     fn id(&self) -> Option<ElementId> {
         Some(self.id.clone())
     }
+
     fn source_location(&self) -> Option<&'static std::panic::Location<'static>> {
         None
     }
+
     fn request_layout(
         &mut self,
         id: Option<&GlobalElementId>,
@@ -140,6 +154,7 @@ impl<E: IntoElement + Styled + 'static> Element for ScrollMotion<E> {
 
         (layout, child)
     }
+
     fn prepaint(
         &mut self,
         id: Option<&GlobalElementId>,
@@ -162,6 +177,7 @@ impl<E: IntoElement + Styled + 'static> Element for ScrollMotion<E> {
             ((), state)
         });
     }
+
     fn paint(
         &mut self,
         _: Option<&GlobalElementId>,

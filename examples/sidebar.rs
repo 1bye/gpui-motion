@@ -9,6 +9,7 @@ use gpui::{
     Stateful, TitlebarOptions, Window, WindowBounds, WindowOptions, actions, div, prelude::*, px,
     rgb, size,
 };
+
 use gpui_ce_motion::{Easing, Motion, MotionState, Spring, Target, Transition};
 
 const SIDEBAR_WIDTH: f32 = 224.0;
@@ -37,25 +38,32 @@ actions!(
 
 // Local tokens keep this direct-GPUI example independent of a component library.
 struct Palette;
+
 impl Palette {
     fn background() -> gpui::Rgba {
         rgb(0x15171b)
     }
+
     fn sidebar() -> gpui::Rgba {
         rgb(0x1c1f25)
     }
+
     fn surface() -> gpui::Rgba {
         rgb(0x22262e)
     }
+
     fn foreground() -> gpui::Rgba {
         rgb(0xedeef0)
     }
+
     fn muted() -> gpui::Rgba {
         rgb(0x9ca3af)
     }
+
     fn border() -> gpui::Rgba {
         rgb(0x343944)
     }
+
     fn accent() -> gpui::Rgba {
         rgb(0xa6baff)
     }

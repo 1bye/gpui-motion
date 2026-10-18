@@ -12,27 +12,33 @@ pub struct LayoutPositionFrame {
     active: bool,
     completed: bool,
 }
+
 impl LayoutPositionFrame {
     /// The current layout destination, without the animation offset.
     pub fn layout_origin(self) -> [f64; 2] {
         self.origin
     }
+
     /// Presented position in the same coordinate space as the measured origin.
     pub fn position(self) -> [f64; 2] {
         self.position
     }
+
     /// Translation to apply after layout; size is unaffected.
     pub fn offset(self) -> [f64; 2] {
         std::array::from_fn(|i| crate::value::finite(self.position[i] - self.origin[i]))
     }
+
     /// Current velocity in logical pixels per second.
     pub fn velocity(self) -> [f64; 2] {
         self.velocity
     }
+
     /// Whether another sample is required.
     pub fn is_animating(self) -> bool {
         self.active
     }
+
     /// Completion edge when the last active axis finishes.
     pub fn just_completed(self) -> bool {
         self.completed
@@ -47,6 +53,7 @@ pub struct LayoutPositionState {
     axes: [MotionValue; 2],
     initialized: bool,
 }
+
 impl Default for LayoutPositionState {
     fn default() -> Self {
         Self {
@@ -55,6 +62,7 @@ impl Default for LayoutPositionState {
         }
     }
 }
+
 impl LayoutPositionState {
     /// Follows a finite layout origin in logical pixels. Panics for non-finite input.
     /// Use one monotonic epoch; backward timestamps hold. Reduced motion snaps and
@@ -126,6 +134,7 @@ impl LayoutPositionState {
             completed: completed && !active,
         }
     }
+
     /// Forgets measurement history. The next measurement mounts immediately.
     pub fn reset(&mut self) {
         *self = Self::default();

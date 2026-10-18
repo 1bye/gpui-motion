@@ -47,6 +47,7 @@ impl Mode {
             Self::Position => "position",
         }
     }
+
     fn has_layout(self) -> bool {
         matches!(
             self,

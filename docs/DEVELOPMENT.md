@@ -145,7 +145,7 @@ workloads, historical baselines, measured results, and their scope.
 [PUBLISHING.md](../PUBLISHING.md) to inspect and validate the package before a
 manual release. CI has no crates.io publishing credentials or upload step.
 
-## Statement spacing
+## Rust spacing
 
 Run the shared Dylint policy on every native source target and all README Rust
 examples:
@@ -168,6 +168,11 @@ Consecutive single-line `let` declarations may stay together. Other declarations
 need a blank line afterward. Standalone control flow needs padding, and returns
 and final expressions need separation from earlier work. Blocks have no padding
 inside their braces, and files permit at most one consecutive empty line.
+
+Type definitions, implementations, functions, and methods need one blank line
+between them. Documentation and attributes stay attached to their definition.
+Struct fields and enum variants stay compact, as do adjacent single-line imports,
+module declarations, constants, statics, or type aliases within their own group.
 
 README examples compile as isolated consumer scopes with GPUI enabled. Diagnostics
 report README line numbers; fixes preserve prose and non-whitespace code. Ignored

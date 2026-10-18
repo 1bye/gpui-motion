@@ -779,6 +779,7 @@ Colors are background, text, border, and shadow; they interpolate in linear ligh
 
 ```rust
 use gpui::{App, Window, div, prelude::*};
+
 use gpui_ce_motion::{
     Color, ColorProperty, StyleMotion, StyleMotionState, StyleProperty, StyleTarget,
 };

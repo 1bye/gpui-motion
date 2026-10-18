@@ -10,22 +10,26 @@ pub enum PresenceMode {
     /// Wait for every removed child to exit before mounting new keys.
     Wait,
 }
+
 /// A retained key and its requested presence. Exiting keys stay mounted.
 #[derive(Clone, Debug)]
 pub struct PresenceChild<K> {
     key: K,
     present: bool,
 }
+
 impl<K> PresenceChild<K> {
     /// Stable identity used to retrieve the caller's retained child state.
     pub fn key(&self) -> &K {
         &self.key
     }
+
     /// Feed this into `Motion::present` for the keyed child.
     pub fn is_present(&self) -> bool {
         self.present
     }
 }
+
 /// Keyed enter/exit coordination. Allocates only on membership changes, never on sampling.
 /// Call `finish_exit` after a child's `Frame::is_mounted` becomes false.
 #[derive(Debug)]
@@ -34,6 +38,7 @@ pub struct PresenceGroup<K> {
     pending: Vec<K>,
     mode: PresenceMode,
 }
+
 impl<K: Clone + PartialEq> PresenceGroup<K> {
     /// Creates an empty group with explicit overlap/wait behavior.
     pub fn new(mode: PresenceMode) -> Self {
@@ -43,6 +48,7 @@ impl<K: Clone + PartialEq> PresenceGroup<K> {
             mode,
         }
     }
+
     /// Reconciles desired keys, rejecting duplicate keys without changing the group.
     /// Reintroducing an exiting key cancels its removal and preserves its identity.
     pub fn update(&mut self, keys: impl IntoIterator<Item = K>) -> Result<(), AnimationError> {
@@ -74,10 +80,12 @@ impl<K: Clone + PartialEq> PresenceGroup<K> {
 
         Ok(())
     }
+
     /// Mounted children, including exits; keys retain their original mount order.
     pub fn children(&self) -> &[PresenceChild<K>] {
         &self.children
     }
+
     /// Unmounts an absent key after its exit. Returns false for unknown or present keys.
     /// The last exit in wait mode mounts the currently requested pending keys.
     pub fn finish_exit(&mut self, key: &K) -> bool {

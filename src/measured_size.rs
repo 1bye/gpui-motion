@@ -1,9 +1,11 @@
 //! Intrinsic content measurement with explicit constraints and real layout interpolation.
 use crate::{LayoutPositionState, Transition};
+
 use gpui::{
     AnyElement, App, AvailableSpace, Bounds, ContentMask, Element, ElementId, GlobalElementId,
     InspectorElementId, IntoElement, LayoutId, Pixels, Style, Window, px, size,
 };
+
 use std::time::Instant;
 
 /// Which measured dimensions interpolate. Other dimensions follow content immediately.
@@ -17,6 +19,7 @@ pub enum SizeAxis {
     /// Animate both measured dimensions.
     Both,
 }
+
 /// Measures content as a separate layout root, reserves its animated size, and
 /// clips painting/input to that reservation. This adds a layout node. Constraints
 /// are explicit because the content is measured before parent layout is resolved.
@@ -30,6 +33,7 @@ pub struct AutoSize<E> {
     transition: Transition,
     initial: Option<[f32; 2]>,
 }
+
 impl<E> AutoSize<E> {
     /// Creates a height animation. First measurement snaps by default.
     ///
@@ -49,12 +53,14 @@ impl<E> AutoSize<E> {
             initial: None,
         }
     }
+
     /// Chooses interpolated dimensions.
     pub fn axis(mut self, axis: SizeAxis) -> Self {
         self.axis = axis;
 
         self
     }
+
     /// Available width for intrinsic measurement. Does not force the child's width.
     pub fn width(mut self, width: f32) -> Self {
         assert!(width.is_finite() && width >= 0.);
@@ -62,6 +68,7 @@ impl<E> AutoSize<E> {
 
         self
     }
+
     /// Available height for intrinsic measurement.
     pub fn height(mut self, height: f32) -> Self {
         assert!(height.is_finite() && height >= 0.);
@@ -69,12 +76,14 @@ impl<E> AutoSize<E> {
 
         self
     }
+
     /// Sets positional spring/tween/instant timing for measured sizes.
     pub fn transition(mut self, transition: Transition) -> Self {
         self.transition = transition;
 
         self
     }
+
     /// Opts into entrance from a finite non-negative size, once per mount.
     pub fn initial(mut self, value: [f32; 2]) -> Self {
         assert!(value.iter().all(|v| v.is_finite() && *v >= 0.));
@@ -83,10 +92,12 @@ impl<E> AutoSize<E> {
         self
     }
 }
+
 struct SizeHistory {
     state: LayoutPositionState,
     epoch: Instant,
 }
+
 // The official pin adds fade_out; registry CE 0.2.2 has only bounds.
 #[allow(clippy::needless_update)]
 fn content_mask(bounds: Bounds<Pixels>) -> ContentMask<Pixels> {
@@ -95,21 +106,27 @@ fn content_mask(bounds: Bounds<Pixels>) -> ContentMask<Pixels> {
         ..Default::default()
     }
 }
+
 impl<E: IntoElement + 'static> IntoElement for AutoSize<E> {
     type Element = Self;
+
     fn into_element(self) -> Self {
         self
     }
 }
+
 impl<E: IntoElement + 'static> Element for AutoSize<E> {
     type RequestLayoutState = AnyElement;
     type PrepaintState = Bounds<Pixels>;
+
     fn id(&self) -> Option<ElementId> {
         Some(self.id.clone())
     }
+
     fn source_location(&self) -> Option<&'static std::panic::Location<'static>> {
         None
     }
+
     fn request_layout(
         &mut self,
         id: Option<&GlobalElementId>,
@@ -193,6 +210,7 @@ impl<E: IntoElement + 'static> Element for AutoSize<E> {
 
         (window.request_layout(style, [], cx), child)
     }
+
     fn prepaint(
         &mut self,
         _: Option<&GlobalElementId>,
@@ -208,6 +226,7 @@ impl<E: IntoElement + 'static> Element for AutoSize<E> {
 
         bounds
     }
+
     fn paint(
         &mut self,
         _: Option<&GlobalElementId>,

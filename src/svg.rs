@@ -11,6 +11,7 @@ use std::time::Instant;
 pub struct SvgTarget {
     values: [f64; 5],
 }
+
 impl Default for SvgTarget {
     fn default() -> Self {
         Self {
@@ -18,11 +19,13 @@ impl Default for SvgTarget {
         }
     }
 }
+
 impl SvgTarget {
     /// Sets equal scale on both axes. Panics for non-finite input.
     pub fn scale(self, factor: f32) -> Self {
         self.scale_xy(factor, factor)
     }
+
     /// Sets independent signed scale factors. Panics for non-finite input.
     pub fn scale_xy(mut self, x: f32, y: f32) -> Self {
         assert!(x.is_finite() && y.is_finite(), "SVG scale must be finite");
@@ -31,6 +34,7 @@ impl SvgTarget {
 
         self
     }
+
     /// Sets an absolute unwrapped angle in degrees. Panics for non-finite input.
     pub fn rotate_degrees(mut self, degrees: f64) -> Self {
         assert!(degrees.is_finite(), "SVG rotation must be finite");
@@ -38,6 +42,7 @@ impl SvgTarget {
 
         self
     }
+
     /// Sets a drawing-only logical-pixel translation. Layout and hitboxes stay fixed.
     pub fn translate(mut self, x: f32, y: f32) -> Self {
         assert!(
@@ -49,16 +54,19 @@ impl SvgTarget {
 
         self
     }
+
     /// Presented drawing translation in logical pixels.
     pub fn translation(self) -> [f32; 2] {
         [self.values[3], self.values[4]]
             .map(|v| v.clamp(f64::from(f32::MIN), f64::from(f32::MAX)) as f32)
     }
+
     /// Drawable signed scale factors, saturated to finite `f32` limits.
     pub fn scale_factors(self) -> [f32; 2] {
         [self.values[0], self.values[1]]
             .map(|v| v.clamp(f64::from(f32::MIN), f64::from(f32::MAX)) as f32)
     }
+
     /// Unwrapped rotation in degrees, including whole turns.
     pub fn rotation_degrees(self) -> f64 {
         self.values[2]
@@ -74,6 +82,7 @@ pub struct SvgMotion {
     transition: Transition,
     delay: Duration,
 }
+
 impl SvgMotion {
     /// Declares a destination. First mount is immediate unless `initial` is supplied.
     pub fn new(target: SvgTarget) -> Self {
@@ -84,18 +93,21 @@ impl SvgMotion {
             delay: Duration::ZERO,
         }
     }
+
     /// Sets the first presentation, used only once by the retained state.
     pub fn initial(mut self, initial: SvgTarget) -> Self {
         self.initial = Some(initial);
 
         self
     }
+
     /// Chooses spring, tween, or instant motion for the five transform channels.
     pub fn transition(mut self, transition: Transition) -> Self {
         self.transition = transition;
 
         self
     }
+
     /// Holds the presentation before each new destination. Identical declarations do not restart.
     pub fn delay(mut self, delay: Duration) -> Self {
         self.delay = delay;
@@ -113,23 +125,28 @@ pub struct SvgFrame {
     active: bool,
     completed: bool,
 }
+
 impl SvgFrame {
     /// Presented signed scales, unwrapped rotation and drawing translation.
     pub fn target(self) -> SvgTarget {
         self.target
     }
+
     /// X scale/second, Y scale/second, and degrees/second.
     pub fn velocity(self) -> [f64; 3] {
         self.velocity
     }
+
     /// Drawing translation velocity, logical pixels/second.
     pub fn translation_velocity(self) -> [f64; 2] {
         self.translation_velocity
     }
+
     /// Whether another frame is needed. False after settling or a reduced-motion snap.
     pub fn is_animating(self) -> bool {
         self.active
     }
+
     /// Completion edge when the final active channel finishes; consumed by this sample.
     pub fn just_completed(self) -> bool {
         self.completed
@@ -145,6 +162,7 @@ pub struct SvgMotionState {
     #[cfg(feature = "gpui")]
     pub(crate) epoch: Instant,
 }
+
 impl Default for SvgMotionState {
     fn default() -> Self {
         Self {
@@ -155,6 +173,7 @@ impl Default for SvgMotionState {
         }
     }
 }
+
 impl SvgMotionState {
     /// Samples a monotonic application timestamp. Backward time holds; identical targets
     /// do not restart. Reduced motion snaps to the destination and completes once.

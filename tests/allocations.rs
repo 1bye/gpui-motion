@@ -1,13 +1,17 @@
 //! Covers: allocation-free steady sampling of prepared native-independent engines.
 //! Real: system allocator and public motion APIs. Doubles: none. Requires: none.
 use gpui_ce_motion::*;
+
 use std::{
     alloc::{GlobalAlloc, Layout, System},
     cell::Cell,
     time::Duration,
 };
+
 thread_local! { static COUNT: Cell<Option<usize>> = const { Cell::new(None) }; }
+
 struct Counting;
+
 // SAFETY: Every operation forwards the exact allocation contract to System;
 // the thread-local counter only observes allocations and never owns their memory.
 unsafe impl GlobalAlloc for Counting {
@@ -21,10 +25,12 @@ unsafe impl GlobalAlloc for Counting {
         // SAFETY: Caller supplies a valid allocation layout, forwarded unchanged.
         unsafe { System.alloc(layout) }
     }
+
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
         // SAFETY: Pointer and layout have the allocator's original provenance.
         unsafe { System.dealloc(ptr, layout) }
     }
+
     unsafe fn realloc(&self, ptr: *mut u8, layout: Layout, size: usize) -> *mut u8 {
         COUNT.with(|count| {
             if let Some(n) = count.get() {
@@ -36,8 +42,10 @@ unsafe impl GlobalAlloc for Counting {
         unsafe { System.realloc(ptr, layout, size) }
     }
 }
+
 #[global_allocator]
 static ALLOCATOR: Counting = Counting;
+
 #[test]
 fn prepared_samples_and_controls_do_not_allocate() {
     let clip = Animation::to(

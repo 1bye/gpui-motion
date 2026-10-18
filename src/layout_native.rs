@@ -1,9 +1,11 @@
 //! Stock CE layout measurement and prepaint translation; no renderer modifications.
 use crate::{LayoutPositionState, Transition};
+
 use gpui::{
     AnyElement, App, Element, ElementId, GlobalElementId, InspectorElementId, IntoElement,
     LayoutId, Pixels, Window, point, px,
 };
+
 use std::{cell::Cell, rc::Rc, time::Instant};
 
 /// A view-owned coordinate scope for automatic position-only layout animation.
@@ -14,6 +16,7 @@ use std::{cell::Cell, rc::Rc, time::Instant};
 pub struct LayoutGroup {
     ancestor: Rc<Cell<Option<[f64; 2]>>>,
 }
+
 impl LayoutGroup {
     /// Wraps an element without adding a layout node or changing its styles.
     /// Keep the ID stable per logical object, unique under the enclosing CE ID.
@@ -55,6 +58,7 @@ pub struct LayoutPositionElement<E> {
     transition: Transition,
     enabled: bool,
 }
+
 impl<E> LayoutPositionElement<E> {
     /// Chooses the positional spring/tween/instant transition.
     pub fn transition(mut self, transition: Transition) -> Self {
@@ -62,6 +66,7 @@ impl<E> LayoutPositionElement<E> {
 
         self
     }
+
     /// Disables interpolation without changing IDs or coordinate scopes. Disabled
     /// elements follow layout immediately and do not schedule animation frames.
     pub fn enabled(mut self, enabled: bool) -> Self {
@@ -70,34 +75,43 @@ impl<E> LayoutPositionElement<E> {
         self
     }
 }
+
 struct RetainedPosition {
     state: LayoutPositionState,
     epoch: Instant,
 }
+
 struct AncestorScope {
     ancestor: Rc<Cell<Option<[f64; 2]>>>,
     previous: Option<[f64; 2]>,
 }
+
 impl Drop for AncestorScope {
     fn drop(&mut self) {
         self.ancestor.set(self.previous);
     }
 }
+
 impl<E: IntoElement + 'static> IntoElement for LayoutPositionElement<E> {
     type Element = Self;
+
     fn into_element(self) -> Self::Element {
         self
     }
 }
+
 impl<E: IntoElement + 'static> Element for LayoutPositionElement<E> {
     type RequestLayoutState = AnyElement;
     type PrepaintState = ();
+
     fn id(&self) -> Option<ElementId> {
         Some(self.id.clone())
     }
+
     fn source_location(&self) -> Option<&'static std::panic::Location<'static>> {
         None
     }
+
     fn request_layout(
         &mut self,
         _: Option<&GlobalElementId>,
@@ -115,6 +129,7 @@ impl<E: IntoElement + 'static> Element for LayoutPositionElement<E> {
 
         (layout, child)
     }
+
     fn prepaint(
         &mut self,
         id: Option<&GlobalElementId>,
@@ -170,6 +185,7 @@ impl<E: IntoElement + 'static> Element for LayoutPositionElement<E> {
             child.prepaint(window, cx);
         });
     }
+
     fn paint(
         &mut self,
         _: Option<&GlobalElementId>,

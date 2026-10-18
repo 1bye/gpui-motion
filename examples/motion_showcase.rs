@@ -7,6 +7,7 @@ use gpui::{
     App, Bounds, Context, Div, FocusHandle, KeyBinding, Render, Role, Stateful, TitlebarOptions,
     Window, WindowBounds, WindowOptions, actions, div, prelude::*, px, rgb, size,
 };
+
 use gpui_ce_motion::*;
 use std::time::{Duration, Instant};
 
@@ -21,6 +22,7 @@ const CARD: u32 = 0x94a765;
 const EXPERIMENTS: usize = 7;
 const TOUR_SECONDS: f64 = EXPERIMENTS as f64 * 6.;
 const TABS: [&str; 4] = ["Overview", "Activity", "Files", "Notes"];
+
 actions!(
     studio,
     [
@@ -46,9 +48,11 @@ actions!(
         Quit
     ]
 );
+
 fn ms(n: u64) -> Duration {
     Duration::from_millis(n)
 }
+
 fn button(id: impl Into<gpui::ElementId>, text: impl Into<gpui::SharedString>) -> Stateful<Div> {
     let text = text.into();
 
@@ -69,6 +73,7 @@ fn button(id: impl Into<gpui::ElementId>, text: impl Into<gpui::SharedString>) -
         .focus_visible(|s| s.border_color(rgb(ACCENT)))
         .child(text)
 }
+
 fn surface() -> Div {
     div()
         .bg(rgb(PANEL))
@@ -76,6 +81,7 @@ fn surface() -> Div {
         .border_1()
         .border_color(rgb(LINE))
 }
+
 fn curve(high: bool) -> PathShape {
     let amplitude = if high { -70. } else { 60. };
 
@@ -94,6 +100,7 @@ fn curve(high: bool) -> PathShape {
     ])
     .expect("prepared compatible curves")
 }
+
 fn tour_position(seconds: f64) -> (usize, bool) {
     let seconds = seconds.clamp(0., TOUR_SECONDS);
     let phase = seconds % 6.;
@@ -103,6 +110,7 @@ fn tour_position(seconds: f64) -> (usize, bool) {
         (1.0..2.0).contains(&phase) || (2.3..4.5).contains(&phase),
     )
 }
+
 struct Studio {
     focus: FocusHandle,
     epoch: Instant,
@@ -133,6 +141,7 @@ struct Studio {
     rendered_tab: usize,
     tab_motion: MotionState,
 }
+
 impl Studio {
     fn new(w: &mut Window, cx: &mut Context<Self>) -> Self {
         let focus = cx.focus_handle();
@@ -198,6 +207,7 @@ impl Studio {
             tab_motion: MotionState::default(),
         }
     }
+
     fn select(&mut self, scene: usize, w: &mut Window, cx: &mut Context<Self>) {
         self.drag.cancel(cx);
         self.scene = scene;
@@ -217,6 +227,7 @@ impl Studio {
         self.focus.focus(w, cx);
         cx.notify();
     }
+
     fn play(&mut self, cx: &mut Context<Self>) {
         let now = self.epoch.elapsed();
 
@@ -248,6 +259,7 @@ impl Studio {
 
         cx.notify();
     }
+
     fn explore(&mut self, cx: &mut Context<Self>) {
         self.touring = false;
         self.exploring = true;
@@ -255,6 +267,7 @@ impl Studio {
         self.clock.pause(self.epoch.elapsed());
         cx.notify();
     }
+
     fn scroll_by(&mut self, delta: f32, cx: &mut Context<Self>) {
         self.explore(cx);
         let y = (f32::from(self.scroll.offset().y) + delta)
@@ -262,12 +275,14 @@ impl Studio {
 
         self.scroll.set_offset(gpui::point(px(0.), px(y)));
     }
+
     fn select_tab(&mut self, key: usize, cx: &mut Context<Self>) {
         self.active_tab = key;
         self.touring = false;
         self.clock.pause(self.epoch.elapsed());
         cx.notify();
     }
+
     fn stage(&mut self, w: &mut Window, cx: &mut Context<Self>) -> gpui::AnyElement {
         let on = self.alternate;
 
@@ -749,6 +764,7 @@ impl Studio {
         }
     }
 }
+
 impl Render for Studio {
     fn render(&mut self, w: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let now = self.epoch.elapsed();
@@ -966,6 +982,7 @@ impl Render for Studio {
             )
     }
 }
+
 fn main() {
     let assets = common::SvgAsset(include_bytes!("assets/showcase.svg"));
 
@@ -1013,6 +1030,7 @@ fn main() {
             cx.activate(true);
         });
 }
+
 #[cfg(test)]
 mod tests {
     // Real tour timing; no native window or clock doubles required.

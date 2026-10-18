@@ -5,8 +5,10 @@ use gpui::{
     AppContext, Context, Modifiers, MouseButton, Render, TestAppContext, VisualTestContext, Window,
     div, point, prelude::*, px, size,
 };
+
 use gpui_ce_motion::{Easing, LayoutGroup, Transition};
 use std::{cell::Cell, rc::Rc, time::Duration};
+
 struct Fixture {
     group: LayoutGroup,
     gap: f32,
@@ -18,6 +20,7 @@ struct Fixture {
     scroll: gpui::ScrollHandle,
     clicks: Rc<Cell<usize>>,
 }
+
 impl Render for Fixture {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         cx.set_reduce_motion(self.reduced);
@@ -80,6 +83,7 @@ impl Render for Fixture {
             .child(content)
     }
 }
+
 fn setup(cx: &mut TestAppContext, nested: bool) -> (gpui::WindowHandle<Fixture>, Rc<Cell<usize>>) {
     let clicks = Rc::new(Cell::new(0));
     let copy = clicks.clone();
@@ -100,6 +104,7 @@ fn setup(cx: &mut TestAppContext, nested: bool) -> (gpui::WindowHandle<Fixture>,
 
     (window, clicks)
 }
+
 fn draw(cx: &mut TestAppContext, window: gpui::WindowHandle<Fixture>) {
     cx.update_window(window.into(), |_, window, cx| {
         window.simulate_next_frame(cx);
@@ -107,6 +112,7 @@ fn draw(cx: &mut TestAppContext, window: gpui::WindowHandle<Fixture>) {
     })
     .unwrap();
 }
+
 fn bounds(
     cx: &TestAppContext,
     window: gpui::WindowHandle<Fixture>,
@@ -116,6 +122,7 @@ fn bounds(
         .debug_bounds(selector)
         .expect("painted bounds")
 }
+
 #[gpui::test]
 fn measured_layout_changes_translate_hitboxes_and_use_final_size(cx: &mut TestAppContext) {
     let (window, clicks) = setup(cx, false);
@@ -168,6 +175,7 @@ fn measured_layout_changes_translate_hitboxes_and_use_final_size(cx: &mut TestAp
         0
     );
 }
+
 #[gpui::test]
 fn nested_wrappers_inherit_parent_translation_without_doubling_it(cx: &mut TestAppContext) {
     let (window, _) = setup(cx, true);
@@ -191,6 +199,7 @@ fn nested_wrappers_inherit_parent_translation_without_doubling_it(cx: &mut TestA
     assert_eq!(bounds(cx, window, "parent").origin.x, px(100.));
     assert_eq!(bounds(cx, window, "item").origin.x, px(140.));
 }
+
 #[gpui::test]
 fn scrolling_moves_presentation_directly_without_starting_a_layout_animation(
     cx: &mut TestAppContext,
@@ -221,6 +230,7 @@ fn scrolling_moves_presentation_directly_without_starting_a_layout_animation(
         0
     );
 }
+
 #[gpui::test]
 fn disabled_or_reduced_motion_follows_layout_immediately(cx: &mut TestAppContext) {
     let (window, _) = setup(cx, false);
@@ -252,6 +262,7 @@ struct Flow {
     reverse: bool,
     extra: bool,
 }
+
 impl Render for Flow {
     fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
         let count: usize = if self.extra { 4 } else { 3 };
@@ -288,6 +299,7 @@ impl Render for Flow {
         row
     }
 }
+
 #[gpui::test]
 fn wrapping_reorder_and_insertion_follow_measured_layout_with_stable_keys(cx: &mut TestAppContext) {
     let window = cx.open_window(size(px(300.), px(200.)), |_, _| Flow {

@@ -9,6 +9,7 @@ pub struct Inertia {
     bounds: Option<(f64, f64)>,
     spring: Spring,
 }
+
 impl Inertia {
     /// Creates exponential deceleration. Panics for a zero time constant.
     pub fn new(time_constant: Duration) -> Self {
@@ -23,6 +24,7 @@ impl Inertia {
             spring: Spring::default(),
         }
     }
+
     /// Sets finite ordered bounds. Crossing a bound switches analytically to a spring.
     pub fn bounds(mut self, min: f64, max: f64) -> Self {
         assert!(
@@ -33,12 +35,14 @@ impl Inertia {
 
         self
     }
+
     /// Chooses the spring used at a boundary.
     pub fn spring(mut self, spring: Spring) -> Self {
         self.spring = spring;
 
         self
     }
+
     /// Projects a resting position and clamps it to configured bounds.
     pub fn project(self, position: f64, velocity: f64) -> f64 {
         assert!(
@@ -51,6 +55,7 @@ impl Inertia {
             .map_or(value, |(min, max)| value.clamp(min, max))
     }
 }
+
 impl Default for Inertia {
     fn default() -> Self {
         Self::new(Duration::from_millis(350))
@@ -65,19 +70,23 @@ pub struct ValueFrame {
     active: bool,
     completed: bool,
 }
+
 impl ValueFrame {
     /// Current presentation value.
     pub fn value(self) -> f64 {
         self.value
     }
+
     /// Current velocity in units per second.
     pub fn velocity(self) -> f64 {
         self.velocity
     }
+
     /// Whether another sample is required to complete motion.
     pub fn is_animating(self) -> bool {
         self.active
     }
+
     /// A completion edge, consumed by this sample.
     pub fn just_completed(self) -> bool {
         self.completed
@@ -110,6 +119,7 @@ pub struct MotionValue {
     completed: bool,
     mode: Mode,
 }
+
 impl MotionValue {
     /// Creates a resting value. Panics for non-finite input.
     pub fn new(value: f64) -> Self {
@@ -131,17 +141,21 @@ impl MotionValue {
             mode: Mode::Transition,
         }
     }
+
     /// Last sampled value; this does not advance time.
     pub fn get(&self) -> f64 {
         self.value
     }
+
     pub(crate) fn target(&self) -> f64 {
         self.target
     }
+
     /// Last sampled velocity.
     pub fn velocity(&self) -> f64 {
         self.velocity
     }
+
     /// Directly sets a value and estimates velocity from elapsed time. Cancels animation.
     pub fn set(&mut self, value: f64, now: Duration) {
         assert!(value.is_finite(), "motion value must be finite");
@@ -162,15 +176,18 @@ impl MotionValue {
         self.set_time = now;
         self.mode = Mode::Transition;
     }
+
     /// Assigns a value, clears momentum, and cancels animation without a completion event.
     pub fn jump(&mut self, value: f64, now: Duration) {
         self.set(value, now);
         self.velocity = 0.0;
     }
+
     /// Retargets from the presentation at `now`. Identical declarations do not restart.
     pub fn animate(&mut self, target: f64, transition: Transition, now: Duration) {
         self.animate_delayed(target, transition, Duration::ZERO, now);
     }
+
     /// Retargets with a delay, preserving incoming spring velocity across the hold.
     pub fn animate_delayed(
         &mut self,
@@ -201,6 +218,7 @@ impl MotionValue {
         self.mode = Mode::Transition;
         self.completed = false;
     }
+
     /// Starts exponential inertia from the last presentation and velocity.
     /// Bounds switch to a spring at the exact crossing time, independent of frame rate.
     pub fn coast(&mut self, inertia: Inertia, now: Duration) {
@@ -216,6 +234,7 @@ impl MotionValue {
         self.active = self.value != self.target || self.velocity != 0.0;
         self.completed = false;
     }
+
     /// Samples a monotonic clock. Reduced motion finishes immediately, including inertia.
     pub fn sample(&mut self, now: Duration, reduced_motion: bool) -> ValueFrame {
         if reduced_motion && self.active {
@@ -234,12 +253,14 @@ impl MotionValue {
             completed,
         }
     }
+
     fn finish(&mut self) {
         self.value = self.target;
         self.velocity = 0.0;
         self.completed |= self.active;
         self.active = false;
     }
+
     fn advance(&mut self, now: Duration) {
         self.last = now;
 
@@ -367,6 +388,7 @@ pub(crate) fn sample_transition(
         }
     }
 }
+
 pub(crate) fn finite(value: f64) -> f64 {
     if value.is_nan() {
         0.0

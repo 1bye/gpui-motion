@@ -1,10 +1,13 @@
 //! Managed-container exit layout without subtree transforms.
 use crate::{LayoutPositionState, Transition};
+
 use gpui::{
     AnyElement, App, AvailableSpace, Bounds, Display, Element, ElementId, GlobalElementId,
     InspectorElementId, IntoElement, LayoutId, Pixels, Point, Style, Window, point, px, size,
 };
+
 use std::{cell::Cell, rc::Rc, time::Instant};
+
 /// Retain in the view. A container records its origin; exiting items reserve no
 /// flow space but remain at their last measured parent-relative bounds. Use the
 /// same container and retain outgoing content with `PresenceGroup` until exit
@@ -14,6 +17,7 @@ use std::{cell::Cell, rc::Rc, time::Instant};
 pub struct PopLayout {
     origin: Rc<Cell<Point<Pixels>>>,
 }
+
 impl PopLayout {
     /// Wraps the container without adding a layout node.
     ///
@@ -41,6 +45,7 @@ impl PopLayout {
             transition: Transition::default(),
         }
     }
+
     /// Wraps a retained item. False removes it from flow immediately. Its child
     /// still owns exit opacity/motion, input suppression and focus restoration.
     /// Owns positional reflow as well as exit positioning. Do not also wrap the
@@ -61,6 +66,7 @@ impl PopLayout {
         }
     }
 }
+
 /// Native wrapper constructed by `PopLayout`.
 pub struct PopElement<E> {
     id: ElementId,
@@ -69,6 +75,7 @@ pub struct PopElement<E> {
     present: Option<bool>,
     transition: Transition,
 }
+
 impl<E> PopElement<E> {
     /// Chooses the item's positional reflow transition. Containers do not animate
     /// themselves. Sizes change immediately; popped positions freeze until reentry.
@@ -78,41 +85,51 @@ impl<E> PopElement<E> {
         self
     }
 }
+
 struct History {
     bounds: Option<Bounds<Pixels>>,
     position: LayoutPositionState,
     epoch: Instant,
 }
+
 struct OriginScope {
     origin: Rc<Cell<Point<Pixels>>>,
     previous: Point<Pixels>,
 }
+
 impl Drop for OriginScope {
     fn drop(&mut self) {
         self.origin.set(self.previous);
     }
 }
+
 /// Per-frame layout data for a popped element. Native implementations should use
 /// `PopLayout::item`; this type only appears through the `Element` trait.
 pub struct PopRequest {
     child: AnyElement,
     bounds: Option<Bounds<Pixels>>,
 }
+
 impl<E: IntoElement + 'static> IntoElement for PopElement<E> {
     type Element = Self;
+
     fn into_element(self) -> Self {
         self
     }
 }
+
 impl<E: IntoElement + 'static> Element for PopElement<E> {
     type RequestLayoutState = PopRequest;
     type PrepaintState = ();
+
     fn id(&self) -> Option<ElementId> {
         Some(self.id.clone())
     }
+
     fn source_location(&self) -> Option<&'static std::panic::Location<'static>> {
         None
     }
+
     fn request_layout(
         &mut self,
         id: Option<&GlobalElementId>,
@@ -154,6 +171,7 @@ impl<E: IntoElement + 'static> Element for PopElement<E> {
             },
         )
     }
+
     fn prepaint(
         &mut self,
         id: Option<&GlobalElementId>,
@@ -238,6 +256,7 @@ impl<E: IntoElement + 'static> Element for PopElement<E> {
             w.with_element_offset(point(px(x), px(y)), |w| request.child.prepaint(w, cx));
         }
     }
+
     fn paint(
         &mut self,
         _: Option<&GlobalElementId>,

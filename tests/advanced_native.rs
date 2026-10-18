@@ -4,15 +4,19 @@
 //! Doubles: CE TestPlatform window/display/GPU. Requires: native-tests feature.
 #[path = "common/activation.rs"]
 mod activation;
+
 use gpui::{
     AppContext, Context, Modifiers, MouseButton, Render, Role, ScrollHandle, TestAppContext,
     VisualTestContext, Window, div, point, prelude::*, px, size,
 };
+
 use gpui_ce_motion::*;
 use std::{cell::Cell, rc::Rc, time::Duration};
+
 fn linear() -> Transition {
     Transition::Tween(Duration::from_secs(1), Easing::Linear)
 }
+
 fn shape(height: f64) -> PathShape {
     PathShape::new([
         PathCommand::Move([0., 0.]),
@@ -20,6 +24,7 @@ fn shape(height: f64) -> PathShape {
     ])
     .unwrap()
 }
+
 struct Fixture {
     mode: u8,
     height: f32,
@@ -36,6 +41,7 @@ struct Fixture {
     vector: VectorState,
     clicks: Rc<Cell<usize>>,
 }
+
 impl Render for Fixture {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         cx.set_reduce_motion(self.reduced);
@@ -235,6 +241,7 @@ impl Render for Fixture {
         root
     }
 }
+
 fn setup(cx: &mut TestAppContext, mode: u8) -> gpui::WindowHandle<Fixture> {
     let window = cx.open_window(size(px(400.), px(300.)), |_, _| Fixture {
         mode,
@@ -262,6 +269,7 @@ fn setup(cx: &mut TestAppContext, mode: u8) -> gpui::WindowHandle<Fixture> {
 
     window
 }
+
 fn draw(cx: &mut TestAppContext, window: gpui::WindowHandle<Fixture>) {
     cx.update_window(window.into(), |_, w, cx| {
         w.simulate_next_frame(cx);
@@ -269,6 +277,7 @@ fn draw(cx: &mut TestAppContext, window: gpui::WindowHandle<Fixture>) {
     })
     .unwrap();
 }
+
 fn bounds(
     cx: &TestAppContext,
     window: gpui::WindowHandle<Fixture>,
@@ -278,6 +287,7 @@ fn bounds(
         .debug_bounds(key)
         .unwrap()
 }
+
 #[gpui::test]
 fn intrinsic_size_reflows_siblings_clips_input_and_retargets_without_jumping(
     cx: &mut TestAppContext,
@@ -321,6 +331,7 @@ fn intrinsic_size_reflows_siblings_clips_input_and_retargets_without_jumping(
     draw(cx, window);
     assert_eq!(bounds(cx, window, "sibling").origin.y, px(160.));
 }
+
 #[gpui::test]
 fn popped_exit_preserves_bounds_and_allows_immediate_sibling_reflow(cx: &mut TestAppContext) {
     let window = setup(cx, 1);
@@ -344,6 +355,7 @@ fn popped_exit_preserves_bounds_and_allows_immediate_sibling_reflow(cx: &mut Tes
     assert_eq!(bounds(cx, window, "pop-1").origin.x, px(11.));
     assert_eq!(bounds(cx, window, "pop-0"), old);
 }
+
 #[gpui::test]
 fn native_gestures_bind_hover_press_drag_outside_release_and_keyboard(cx: &mut TestAppContext) {
     let window = setup(cx, 2);
@@ -383,6 +395,7 @@ fn native_gestures_bind_hover_press_drag_outside_release_and_keyboard(cx: &mut T
     draw(cx, window);
     assert!(state.presented().x_px() <= 100.);
 }
+
 #[gpui::test]
 fn drag_cancels_on_escape_blur_and_window_deactivation(cx: &mut TestAppContext) {
     let window = setup(cx, 2);
@@ -428,6 +441,7 @@ fn drag_cancels_on_escape_blur_and_window_deactivation(cx: &mut TestAppContext) 
     assert!(!state.interaction().dragging);
     assert!(!state.interaction().pressed);
 }
+
 #[gpui::test]
 fn native_scroll_binding_reads_real_extents_without_host_metric_calculation(
     cx: &mut TestAppContext,
@@ -446,6 +460,7 @@ fn native_scroll_binding_reads_real_extents_without_host_metric_calculation(
     assert!((native_scroll_progress(&scroll, Axis::Y) - 0.5).abs() < 1e-6);
     assert_eq!(bounds(cx, window, "indicator").origin.x, px(50.));
 }
+
 #[gpui::test]
 fn shared_position_crossfade_retargets_across_separate_native_ids(cx: &mut TestAppContext) {
     let window = setup(cx, 4);
@@ -480,6 +495,7 @@ fn shared_position_crossfade_retargets_across_separate_native_ids(cx: &mut TestA
     shared.remove(&0);
     assert!(shared.is_empty());
 }
+
 #[gpui::test]
 fn reorder_uses_actual_geometry_and_commits_pointer_and_keyboard_order(cx: &mut TestAppContext) {
     let window = setup(cx, 5);
@@ -511,6 +527,7 @@ fn reorder_uses_actual_geometry_and_commits_pointer_and_keyboard_order(cx: &mut 
     assert!(group.set_order(vec![1, 1]).is_err());
     assert_eq!(&*group.order(), &[2, 1, 3]);
 }
+
 #[gpui::test]
 fn reorder_escape_restores_original_order(cx: &mut TestAppContext) {
     let window = setup(cx, 5);
@@ -532,6 +549,7 @@ fn reorder_escape_restores_original_order(cx: &mut TestAppContext) {
     assert_eq!(&*group.order(), &[1, 2, 3]);
     assert!(!group.is_dragging());
 }
+
 #[gpui::test]
 fn vector_morph_and_reveal_tessellate_and_stop_scheduling_after_reduced_motion(
     cx: &mut TestAppContext,
@@ -596,6 +614,7 @@ fn unanimated_measured_axes_do_not_schedule_unnecessary_frames(cx: &mut TestAppC
         0
     );
 }
+
 #[gpui::test]
 fn first_active_shared_member_snaps_even_when_inactive_member_is_traversed_first(
     cx: &mut TestAppContext,
@@ -658,6 +677,7 @@ fn disabling_native_bindings_cancels_drag_and_blocks_child_activation(cx: &mut T
     assert_eq!(clicks.get(), 0);
     assert!(!state.interaction().pressed);
 }
+
 #[gpui::test]
 fn reorder_callbacks_only_fire_for_changes_and_can_reenter_the_group(cx: &mut TestAppContext) {
     let window = setup(cx, 5);

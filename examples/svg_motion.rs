@@ -7,8 +7,10 @@ use gpui::{
     TitlebarOptions, Window, WindowBounds, WindowOptions, actions, div, prelude::*, px, rgb, size,
     svg,
 };
+
 use gpui_ce_motion::{Easing, SvgMotion, SvgMotionState, SvgTarget, Transition};
 use std::time::Duration;
+
 actions!(
     svg_demo,
     [
@@ -36,6 +38,7 @@ actions!(
         Quit,
     ]
 );
+
 fn button(id: &'static str, label: &'static str) -> Stateful<Div> {
     div()
         .id(id)
@@ -51,6 +54,7 @@ fn button(id: &'static str, label: &'static str) -> Stateful<Div> {
         .focus_visible(|s| s.border_color(rgb(0xb8c8ff)))
         .child(label)
 }
+
 struct Demo {
     focus: FocusHandle,
     state: SvgMotionState,
@@ -59,6 +63,7 @@ struct Demo {
     mirrored: bool,
     tween: bool,
 }
+
 impl Render for Demo {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let scale = if self.large { 1.5 } else { 1. };
@@ -198,6 +203,7 @@ impl Render for Demo {
                 .child("Interrupt repeatedly: springs preserve momentum; tweens preserve position."))
     }
 }
+
 fn main() {
     let assets = common::SvgAsset(include_bytes!("assets/motion.svg"));
 

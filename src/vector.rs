@@ -1,6 +1,7 @@
 //! Compatible path morphing and approximate arc-length stroke drawing.
 use crate::{MotionValue, Transition};
 use std::{fmt, sync::Arc, time::Duration};
+
 /// Absolute path commands in logical pixels. Subpaths start with Move.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum PathCommand {
@@ -15,6 +16,7 @@ pub enum PathCommand {
     /// Closes the current subpath.
     Close,
 }
+
 impl PathCommand {
     fn kind(self) -> u8 {
         match self {
@@ -25,6 +27,7 @@ impl PathCommand {
             Self::Close => 4,
         }
     }
+
     fn coordinates(self) -> ([f64; 6], usize) {
         match self {
             Self::Move([x, y]) | Self::Line([x, y]) => ([x, y, 0., 0., 0., 0.], 2),
@@ -33,6 +36,7 @@ impl PathCommand {
             Self::Close => ([0.; 6], 0),
         }
     }
+
     fn with(self, v: [f64; 6]) -> Self {
         match self {
             Self::Move(_) => Self::Move([v[0], v[1]]),
@@ -43,6 +47,7 @@ impl PathCommand {
         }
     }
 }
+
 /// Recoverable geometry, topology, tessellation or dash-budget failure.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PathError {
@@ -55,18 +60,22 @@ pub enum PathError {
     /// Native tessellation failed.
     Tessellation,
 }
+
 impl fmt::Display for PathError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "invalid motion path: {self:?}")
     }
 }
+
 impl std::error::Error for PathError {}
+
 /// Immutable shared absolute path. Curves retain their controls for exact native
 /// fill; stroke length/reveal uses 32 equal-parameter segments per curve. Prepare
 /// paths once. Coordinates are bounded to ±1e9 logical pixels to keep native
 /// tessellation and length arithmetic in a useful finite range.
 #[derive(Clone, Debug)]
 pub struct PathShape(Arc<[PathCommand]>);
+
 impl PathShape {
     /// Validates commands before allocating retained morph state.
     pub fn new(commands: impl IntoIterator<Item = PathCommand>) -> Result<Self, PathError> {
@@ -96,10 +105,12 @@ impl PathShape {
 
         Ok(Self(commands.into()))
     }
+
     /// Prepared absolute commands.
     pub fn commands(&self) -> &[PathCommand] {
         &self.0
     }
+
     /// Whether native coordinate interpolation can preserve command topology.
     pub fn compatible(&self, other: &Self) -> bool {
         self.0.len() == other.0.len()
@@ -110,6 +121,7 @@ impl PathShape {
                 .all(|(a, b)| a.kind() == b.kind())
     }
 }
+
 /// Normalized line drawing. Length and gap are fractions of total path length;
 /// offset shifts the pattern along the path. Zero length paints nothing. A zero
 /// gap paints continuously. At most 4096 periods are allowed to bound paint cost.
@@ -117,6 +129,7 @@ impl PathShape {
 pub struct StrokeReveal {
     values: [f64; 3],
 }
+
 impl Default for StrokeReveal {
     fn default() -> Self {
         Self {
@@ -124,6 +137,7 @@ impl Default for StrokeReveal {
         }
     }
 }
+
 impl StrokeReveal {
     /// Validates finite non-negative length/gap and finite offset. Length/gap must
     /// be at most one; offset may be any finite number of path lengths.
@@ -140,19 +154,23 @@ impl StrokeReveal {
             values: [length, offset, spacing],
         })
     }
+
     /// Length, offset and gap fractions.
     pub fn values(self) -> [f64; 3] {
         self.values
     }
 }
+
 #[derive(Clone, Copy, Debug)]
 struct Vertex {
     point: [f64; 2],
     start: bool,
 }
+
 fn lerp(a: [f64; 2], b: [f64; 2], t: f64) -> [f64; 2] {
     std::array::from_fn(|i| a[i] * (1. - t) + b[i] * t)
 }
+
 fn flatten(commands: &[PathCommand], vertices: &mut Vec<Vertex>) -> f64 {
     vertices.clear();
     let mut current = [0.; 2];
@@ -226,6 +244,7 @@ fn flatten(commands: &[PathCommand], vertices: &mut Vec<Vertex>) -> f64 {
         .map(|p| (p[1].point[0] - p[0].point[0]).hypot(p[1].point[1] - p[0].point[1]))
         .sum()
 }
+
 /// Retained compatible topology morph. Construction allocates its reusable scalar,
 /// command and length buffers. Sampling/reveal iteration do not allocate. Springs
 /// retain velocity for every control coordinate at interruption.
@@ -237,6 +256,7 @@ pub struct PathMorphState {
     vertices: Vec<Vertex>,
     length: f64,
 }
+
 impl PathMorphState {
     /// Creates a resting path and prepares curve-length approximation buffers.
     ///
@@ -270,6 +290,7 @@ impl PathMorphState {
             length,
         }
     }
+
     /// Checks a destination before changing any state.
     pub fn validate(&self, target: &PathShape) -> Result<(), PathError> {
         if self.shape.compatible(target) {
@@ -278,6 +299,7 @@ impl PathMorphState {
             Err(PathError::Topology)
         }
     }
+
     /// Samples coordinate motion transactionally. Incompatible topology leaves the
     /// state unchanged. Reduced motion snaps; backward time holds.
     pub fn sample(
@@ -325,6 +347,7 @@ impl PathMorphState {
         })
     }
 }
+
 /// Borrowed sampled geometry. Stroke length is approximate; fills retain curves.
 pub struct PathFrame<'a> {
     commands: &'a [PathCommand],
@@ -333,23 +356,28 @@ pub struct PathFrame<'a> {
     active: bool,
     completed: bool,
 }
+
 impl PathFrame<'_> {
     /// Presented absolute commands.
     pub fn commands(&self) -> &[PathCommand] {
         self.commands
     }
+
     /// Approximate total arc length, excluding jumps between subpaths.
     pub fn length(&self) -> f64 {
         self.length
     }
+
     /// Whether coordinate motion needs another sample.
     pub fn is_animating(&self) -> bool {
         self.active
     }
+
     /// Completion edge when the last moving coordinate finishes.
     pub fn just_completed(&self) -> bool {
         self.completed
     }
+
     /// Visits visible stroke segments without allocation. Subpath moves do not
     /// consume length or draw connectors. The pattern's length/offset/gap are in
     /// normalized total arc length; the finite period budget bounds traversal.

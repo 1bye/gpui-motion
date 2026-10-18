@@ -77,10 +77,12 @@ impl Target {
     pub fn width_px(self) -> Option<f32> {
         self.layout_value(3)
     }
+
     /// Height, if declared, clamped to non-negative finite drawable values.
     pub fn height_px(self) -> Option<f32> {
         self.layout_value(4)
     }
+
     /// Corner radius, if declared, clamped to non-negative finite drawable values.
     pub fn border_radius_px(self) -> Option<f32> {
         self.layout_value(5)
@@ -128,15 +130,19 @@ impl Target {
 
         self
     }
+
     pub(crate) fn values(self) -> [f64; CHANNELS] {
         self.values
     }
+
     pub(crate) fn from_values(values: [f64; CHANNELS], layout: u8) -> Self {
         Self { values, layout }
     }
+
     pub(crate) fn mask(self) -> u8 {
         self.layout
     }
+
     pub(crate) fn inherit(self, base: Self) -> Self {
         self.with_layout_fallback(base)
     }
@@ -145,10 +151,12 @@ impl Target {
     pub fn x_px(self) -> f32 {
         self.values[0].clamp(f64::from(f32::MIN), f64::from(f32::MAX)) as f32
     }
+
     /// Vertical offset in logical pixels, saturated to finite `f32` limits.
     pub fn y_px(self) -> f32 {
         self.values[1].clamp(f64::from(f32::MIN), f64::from(f32::MAX)) as f32
     }
+
     /// Opacity, clamped to the drawable range.
     pub fn alpha(self) -> f32 {
         self.values[2].clamp(0.0, 1.0) as f32
@@ -186,36 +194,42 @@ impl Motion {
     pub fn target(self) -> Target {
         self.target
     }
+
     /// Replaces the destination while retaining transition, entrance, and exit policy.
     pub fn with_target(mut self, target: Target) -> Self {
         self.target = target;
 
         self
     }
+
     /// Sets the first mount's presentation, used only once per retained state.
     pub fn initial(mut self, value: Target) -> Self {
         self.initial = Some(value);
 
         self
     }
+
     /// Sets the exit target; re-entry starts from the current exit presentation.
     pub fn exit(mut self, value: Target) -> Self {
         self.exit = value;
 
         self
     }
+
     /// Sets the transition. A change interrupts the current transition.
     pub fn transition(mut self, value: Transition) -> Self {
         self.transition = value;
 
         self
     }
+
     /// Delays each new target. An exit uses the same delay unless overridden.
     pub fn delay(mut self, delay: Duration) -> Self {
         self.delay = delay;
 
         self
     }
+
     /// Sets a property's independent transition and delay.
     pub fn transition_for(
         mut self,
@@ -227,6 +241,7 @@ impl Motion {
 
         self
     }
+
     /// Requests mount or removal. Continue sampling while false to finish exit.
     pub fn present(mut self, value: bool) -> Self {
         self.present = value;
@@ -288,6 +303,7 @@ impl Frame {
             completed: false,
         }
     }
+
     pub(crate) fn animated(
         target: Target,
         velocity: [f64; CHANNELS],
@@ -302,18 +318,22 @@ impl Frame {
             completed,
         }
     }
+
     /// Completion edge. Read once per view render to dispatch an owner-level event.
     pub fn just_completed(self) -> bool {
         self.completed
     }
+
     /// Current presentation values, rather than the declaration's destination.
     pub fn target(self) -> Target {
         self.target
     }
+
     /// Current x, y, and opacity velocities per second, before drawing clamps.
     pub fn velocity(self) -> [f64; 3] {
         [self.velocity[0], self.velocity[1], self.velocity[2]]
     }
+
     /// Width, height, and radius velocities in logical pixels per second.
     /// Undeclared channels return `None`; velocities are before drawing clamps.
     pub fn layout_velocity(self) -> [Option<f64>; 3] {
@@ -321,18 +341,22 @@ impl Frame {
             (self.target.layout & (1 << (ix + 3)) != 0).then_some(self.velocity[ix + 3])
         })
     }
+
     /// Current lifecycle phase.
     pub fn presence(self) -> Presence {
         self.presence
     }
+
     /// Whether another animation frame is needed.
     pub fn is_animating(self) -> bool {
         self.animating
     }
+
     /// Whether the element must remain in the rendered tree, including its exit.
     pub fn is_mounted(self) -> bool {
         self.presence != Presence::Absent
     }
+
     /// Whether the model requests presence. Disable exit-time input using this.
     pub fn is_present(self) -> bool {
         matches!(self.presence, Presence::Entering | Presence::Present)
@@ -353,6 +377,7 @@ pub struct MotionState {
     #[cfg(feature = "gpui")]
     pub(crate) epoch: Instant,
 }
+
 impl Default for MotionState {
     fn default() -> Self {
         Self {
@@ -365,6 +390,7 @@ impl Default for MotionState {
         }
     }
 }
+
 impl MotionState {
     /// Samples absolute monotonic time. Identical targets do not restart. Each
     /// property retargets independently, preserving spring velocity. Omitted layout

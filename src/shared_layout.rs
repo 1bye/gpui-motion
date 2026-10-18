@@ -1,10 +1,13 @@
 //! Explicit shared identity in a common coordinate space, without size projection.
 use crate::{LayoutPositionState, MotionValue, Transition};
+
 use gpui::{
     AnyElement, App, Bounds, Element, ElementId, GlobalElementId, InspectorElementId, IntoElement,
     LayoutId, Pixels, Styled, Window, point, px,
 };
+
 use std::{cell::RefCell, collections::HashMap, hash::Hash, rc::Rc, time::Instant};
+
 struct Entry {
     position: LayoutPositionState,
     destination: [f64; 2],
@@ -12,6 +15,7 @@ struct Entry {
     epoch: Instant,
     measured: bool,
 }
+
 /// View-owned shared identity registry. Exactly one active destination per key
 /// is required. Render incoming/outgoing appearances in a common overlay; retain
 /// outgoing content until its normal presence exit completes. Native clipping
@@ -20,24 +24,29 @@ struct Entry {
 /// Clones share storage. Call `remove` when a logical shared identity is finished.
 #[derive(Clone)]
 pub struct SharedLayout<K>(Rc<RefCell<HashMap<K, Entry>>>);
+
 impl<K> Default for SharedLayout<K> {
     fn default() -> Self {
         Self(Rc::new(RefCell::new(HashMap::new())))
     }
 }
+
 impl<K: Eq + Hash + Clone + 'static> SharedLayout<K> {
     /// Forgets a shared identity. Existing native member history ends on unmount.
     pub fn remove(&self, key: &K) {
         self.0.borrow_mut().remove(key);
     }
+
     /// Number of explicitly retained shared identities.
     pub fn len(&self) -> usize {
         self.0.borrow().len()
     }
+
     /// Whether no identities are retained.
     pub fn is_empty(&self) -> bool {
         self.0.borrow().is_empty()
     }
+
     /// Creates a crossfading appearance. Styles and absolute positioning belong
     /// on the child. Inactive retained appearances follow the active position.
     /// The owner must suppress input and restore focus for outgoing appearances,
@@ -68,6 +77,7 @@ impl<K: Eq + Hash + Clone + 'static> SharedLayout<K> {
         }
     }
 }
+
 /// Native position/crossfade appearance constructed by `SharedLayout::member`.
 pub struct SharedElement<K, E> {
     group: SharedLayout<K>,
@@ -77,6 +87,7 @@ pub struct SharedElement<K, E> {
     child: Option<E>,
     transition: Transition,
 }
+
 impl<K, E> SharedElement<K, E> {
     /// Chooses interruption-aware positional and crossfade timing.
     pub fn transition(mut self, transition: Transition) -> Self {
@@ -85,29 +96,36 @@ impl<K, E> SharedElement<K, E> {
         self
     }
 }
+
 struct Fade {
     value: MotionValue,
     epoch: Instant,
 }
+
 impl<K: Eq + Hash + Clone + 'static, E: IntoElement + Styled + 'static> IntoElement
     for SharedElement<K, E>
 {
     type Element = Self;
+
     fn into_element(self) -> Self {
         self
     }
 }
+
 impl<K: Eq + Hash + Clone + 'static, E: IntoElement + Styled + 'static> Element
     for SharedElement<K, E>
 {
     type RequestLayoutState = AnyElement;
     type PrepaintState = ();
+
     fn id(&self) -> Option<ElementId> {
         Some(self.id.clone())
     }
+
     fn source_location(&self) -> Option<&'static std::panic::Location<'static>> {
         None
     }
+
     fn request_layout(
         &mut self,
         id: Option<&GlobalElementId>,
@@ -169,6 +187,7 @@ impl<K: Eq + Hash + Clone + 'static, E: IntoElement + Styled + 'static> Element
 
         (layout, child)
     }
+
     fn prepaint(
         &mut self,
         _: Option<&GlobalElementId>,
@@ -219,6 +238,7 @@ impl<K: Eq + Hash + Clone + 'static, E: IntoElement + Styled + 'static> Element
             child.prepaint(w, cx);
         });
     }
+
     fn paint(
         &mut self,
         _: Option<&GlobalElementId>,

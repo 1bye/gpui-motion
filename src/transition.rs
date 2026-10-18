@@ -119,11 +119,13 @@ pub struct CustomEasing {
     sample: fn(f64) -> (f64, f64),
     identity: u64,
 }
+
 impl PartialEq for CustomEasing {
     fn eq(&self, other: &Self) -> bool {
         self.identity == other.identity
     }
 }
+
 impl CustomEasing {
     /// Validates finite endpoints at 0 and 1 and exact endpoint values 0/1.
     /// The callback must return finite `(value, derivative)` throughout `[0,1]`;
@@ -325,6 +327,7 @@ impl Default for Transition {
 pub struct Bezier {
     points: [f64; 4],
 }
+
 impl Bezier {
     /// Validates finite controls and monotonic time coordinates.
     pub fn new(x1: f64, y1: f64, x2: f64, y2: f64) -> Result<Self, InvalidEasing> {
@@ -339,6 +342,7 @@ impl Bezier {
             points: [x1, y1, x2, y2],
         })
     }
+
     fn sample(self, x: f64) -> (f64, f64) {
         let [x1, y1, x2, y2] = self.points;
 
@@ -376,12 +380,15 @@ impl Bezier {
         )
     }
 }
+
 /// Invalid cubic Bezier controls or custom easing endpoint/derivative contract.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct InvalidEasing;
+
 impl fmt::Display for InvalidEasing {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("invalid Bezier controls or custom easing endpoints/derivatives")
     }
 }
+
 impl Error for InvalidEasing {}
