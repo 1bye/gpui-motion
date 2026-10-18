@@ -107,3 +107,14 @@ The comparison uses Motion's official [animation](https://motion.dev/docs/react-
 [transitions](https://motion.dev/docs/react-transitions),
 [gestures](https://motion.dev/docs/react-gestures), and
 [scroll animation](https://motion.dev/docs/react-scroll-animations) documentation.
+
+## Text motion
+
+Native CE and Kit text adapters support whole labels, Unicode word/grapheme units,
+measured wrapped lines, enter/exit, content matching, position reflow, stagger,
+masked reveals, typewriter, scramble, prepared keyframes/repeats, custom entrances,
+pause/play/restart and finite entrance scrubbing. `NumberMotionState` adds exact
+i64 endpoints, changed-digit rolling/fading/sliding, and rounded numeric sampling.
+See [text contracts](docs/TEXT.md) for the two-second spring scrub horizon, numeric
+precision, native composition costs and typography/accessibility limits. General
+transforms, outline morphs, editable text, rich spans and font axes remain excluded.

@@ -24,13 +24,15 @@ undocumented_unsafe_blocks = "warn"
 
 [features]
 default = []
-gpui = ["dep:gpui"]
+text = ["dep:unicode-segmentation"]
+gpui = ["dep:gpui", "text"]
 # Window-system backends are only needed to run the demos.
 demo = ["gpui", "dep:gpui_platform"]
 # Opt-in headless tests of real CE layout/prepaint/input, excluded from normal builds.
 native-tests = ["gpui", "gpui/test-support"]
 
 [dependencies]
+unicode-segmentation = { version = "1.13.3", optional = true }
 # Match the published CE API; no workspace patches or Git dependencies.
 gpui = { package = "gpui-ce", version = "=0.2.2", default-features = false, optional = true }
 
@@ -96,3 +98,21 @@ required-features = ["demo"]
 
 [workspace.metadata.dylint]
 libraries = [{ git = "https://github.com/1bye/workflow", rev = "f62c7d7dcdf3ffd9b77de95a523544a0c688bb9b", pattern = "rust/spacing" }]
+
+[[test]]
+name = "text_native"
+required-features = ["native-tests"]
+
+[[example]]
+name = "text_motion"
+required-features = ["demo"]
+
+[[bench]]
+name = "text_sampling"
+harness = false
+required-features = ["text"]
+
+[[bench]]
+name = "text_native"
+harness = false
+required-features = ["native-tests"]

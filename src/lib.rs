@@ -138,3 +138,20 @@ mod vector_native;
 
 #[cfg(feature = "gpui")]
 pub use vector_native::{VectorElement, VectorState};
+
+#[cfg(feature = "text")]
+mod text;
+#[cfg(feature = "text")]
+pub use text::{
+    NumberEffect, Scramble, TextClip, TextError, TextLayoutUnit, TextMatch, TextOptions,
+    TextPlaybackState, TextPresentation, TextPreset, TextTarget, TextUnit, TextUnitInfo,
+    text_ranges,
+};
+
+#[cfg(feature = "gpui")]
+mod text_native {
+    use gpui::ColorExt as _;
+    crate::__motion_text_adapter!(gpui);
+}
+#[cfg(feature = "gpui")]
+pub use text_native::{NumberElement, NumberMotionState, TextElement, TextMotionState};

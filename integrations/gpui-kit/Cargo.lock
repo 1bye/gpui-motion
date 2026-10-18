@@ -2178,6 +2178,9 @@ dependencies = [
 [[package]]
 name = "gpui-ce-motion"
 version = "0.1.0"
+dependencies = [
+ "unicode-segmentation",
+]
 
 [[package]]
 name = "gpui-component"

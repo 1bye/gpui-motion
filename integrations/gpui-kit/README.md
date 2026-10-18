@@ -93,3 +93,29 @@ Local release-profile result on macOS ARM64 with Rust 1.95.0, recorded on
 This is one shared-desktop CPU comparison, not a frame-rate guarantee. The
 animated wrapper adds roughly 0.76 ms to the median batch mean in this workload.
 These figures do not measure all six product screens or GPU execution.
+
+## Text gallery
+
+The native text API shares its renderer and portable engine with the CE adapter.
+Keep `TextMotionState` or `NumberMotionState` from `gpui_motion_kit` in the owner.
+Text grouping, targets, presets and number effects are re-exported alongside them;
+existing transitions, prepared animations and stagger origins come from `core`.
+
+```sh
+cargo run --manifest-path integrations/gpui-kit/Cargo.toml --features demo --example text_motion
+```
+
+Try all twelve modes, edit the input, or press Change text repeatedly while it
+moves. Replay/Pause/Resume control text playback; Scrub exposes a draggable reveal
+slider. Numbers demonstrates Roll/Fade/Slide/Count with increment/decrement buttons.
+The reduced-motion checkbox settles every mode. The [text API and contracts](../../docs/TEXT.md)
+cover Unicode shaping, matching, clipping, playback and the finite scrub horizon.
+
+The text-native benchmark compares ordinary text replacement, settled adapter
+rendering, interrupted word/grapheme movement and deterministic scrambling for
+40 labels. Like the layout benchmark, it measures CPU preparation on TestPlatform.
+
+The final local run measured 0.271 ms/frame for ordinary text, 0.419 ms for
+interrupted words, 0.542 ms for graphemes and 0.560 ms for scrambling. These are
+median batch means; see [measurement details and P95](../../PERFORMANCE.md#native-text-motion--2026-10-18)
+for workload differences, repeat-run variation and the stock-CE comparison.

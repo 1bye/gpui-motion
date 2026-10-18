@@ -155,3 +155,14 @@ impl ValueState {
         frame
     }
 }
+
+mod text {
+    gpui_ce_motion::__motion_text_adapter!(gpui_kit);
+}
+
+pub use gpui_ce_motion::{
+    NumberEffect, Scramble, TextClip, TextError, TextMatch, TextPreset, TextTarget, TextUnit,
+    TextUnitInfo,
+};
+
+pub use text::{NumberElement, NumberMotionState, TextElement, TextMotionState};

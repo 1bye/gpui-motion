@@ -28,7 +28,8 @@ same CE source and version throughout your app so its element types match.
 | Feature        | Use it for                                                              |
 | -------------- | ----------------------------------------------------------------------- |
 | Default (none) | Portable animation math, explicit clocks, no third-party dependencies   |
-| `gpui`         | Native element adapters, input bindings, and automatic frame scheduling |
+| `text`         | Portable Unicode text lifecycle and prepared text sampling               |
+| `gpui`         | Native adapters, text, input bindings, and automatic frame scheduling    |
 | `demo`         | Running this repository's examples; adds the platform backends          |
 | `native-tests` | Development checks using CE's TestPlatform                              |
 
@@ -108,7 +109,8 @@ handles the clock, frame requests, and that preference for you.
   [scroll and visibility](#scroll-and-visibility), [reordering](#reordering).
 - **Layout:** [Positions](#layout-positions), [popped exits](#popped-exits),
   [content sizing](#content-sizing), [shared visuals](#shared-visuals).
-- **Drawing:** [Styles](#style-animation), [SVG transforms](#svg-transforms),
+- **Drawing:** [Styles](#style-animation), [text and numbers](#text-motion),
+  [SVG transforms](#svg-transforms),
   [vector paths](#vector-paths), [motion values](#motion-values), [colors](#colors).
 - **Reference:** [Lifecycle and accessibility](#lifecycle-and-accessibility),
   [validation](#validation), [all public exports](#public-export-index).
@@ -813,6 +815,154 @@ Omitted styles remain unchanged until introduced, then retain their last target.
 Reset the state to release overrides. Shadow/filter declarations replace their
 lists. Spacing reflows layout; blur requires separate GPU profiling.
 
+## Text motion
+
+These text APIs are unreleased and require this repository checkout.
+
+Retain a `TextMotionState` per label. The element measures and shapes complete text,
+then coordinates its units, outgoing content, and interrupted transitions.
+The native `gpui` feature enables text automatically; portable consumers can enable
+`text` alone. Kit consumers import native states from `gpui_motion_kit`.
+
+```rust
+use gpui::prelude::*;
+use gpui_ce_motion::{StaggerFrom, TextMotionState, TextPreset, TextUnit, Transition};
+use std::time::Duration;
+
+fn title(state: &TextMotionState, text: String) -> impl gpui::IntoElement {
+    state
+        .element("title", text)
+        .units(TextUnit::Words)
+        .preset(TextPreset::FadeUp)
+        .stagger(Duration::from_millis(35), StaggerFrom::Start)
+        .transition(Transition::default())
+        .text_2xl()
+}
+```
+
+Groupings are `Whole`, `Words`, `Graphemes`, and measured `Lines`. Presets are
+`Fade`, `FadeUp`, `SlideUp`, `WipeRight`, `WipeLeft`, and discrete `Typewriter`.
+`animate_initial(false)` skips the first entrance while preserving later changes.
+
+Custom poses and matching compose independently:
+
+```rust
+use gpui_ce_motion::{
+    PresenceMode, TextClip, TextMatch, TextMotionState, TextTarget, TextUnit, Transition,
+};
+
+let state = TextMotionState::default();
+
+let text = state
+    .element("status", "Ready when you are.")
+    .units(TextUnit::Graphemes)
+    .matching(TextMatch::Content)
+    .reflow(Transition::default())
+    .enter(TextTarget::default().y_relative(1.0).opacity(0.0))
+    .exit(TextTarget::default().y_relative(-1.0).opacity(0.0))
+    .opacity_transition(Transition::Tween(
+        std::time::Duration::from_millis(100),
+        gpui_ce_motion::Easing::EaseOut,
+    ))
+    .clip(TextClip::Unit)
+    .presence_mode(PresenceMode::Sync);
+```
+
+`TextTarget` supplies `x_em`, `y_em`, measured-height `y_relative`, `opacity`,
+and horizontal `reveal`. SlideUp clears the entire measured unit; SlideUp and
+wipes fade outgoing text over 100 ms. `opacity_transition(...)` changes that
+opacity timing while `transition(...)` keeps control of movement and reveal.
+`TextMatch::Content` preserves matching occurrences; `Replace` replaces changed
+content and `Position` matches slots. `PresenceMode::Wait` waits for exits and
+keeps the latest pending text. Font metrics and sizes change immediately.
+
+Prepare a scramble alphabet once, or calculate each unit's entrance:
+
+```rust
+use gpui_ce_motion::{Scramble, TextMotionState, TextTarget, TextUnit};
+use std::time::Duration;
+
+let state = TextMotionState::default();
+
+let scramble = Scramble::new("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+    .duration(Duration::from_millis(500))
+    .seed(42);
+
+let scrambled = state
+    .element("scrambled", "A new idea")
+    .units(TextUnit::Graphemes)
+    .scramble(scramble);
+
+let another_state = TextMotionState::default();
+
+let alternating = another_state
+    .element("alternating", "Make room for the next idea")
+    .units(TextUnit::Words)
+    .enter_with(|unit| {
+        let direction = if unit.index % 2 == 0 { -1.0 } else { 1.0 };
+
+        TextTarget::default()
+            .y_em(direction * 0.6)
+            .opacity(0.0)
+    });
+```
+
+`TextUnitInfo` provides `index`, `count`, and `text`. A retained prepared
+`Animation` can be passed to `animation(&clip)` for keyframes and repeating
+waves/pulses. Its x/y channels use logical pixels and opacity multiplies presence.
+
+Playback controls work from ordinary event handlers:
+
+```rust
+use gpui_ce_motion::TextMotionState;
+
+fn controls(state: &TextMotionState, window: &mut gpui::Window, cx: &gpui::App) {
+    state.pause(window, cx);
+
+    let accepted = state.seek(0.5, window, cx);
+
+    state.play(window, cx);
+    state.restart(window, cx);
+}
+```
+
+`seek` holds a normalized finite entrance cursor and returns false for infinite
+clips. `progress(value)` declaratively scrubs entrances including stagger; it
+rejects infinite clips. Spring scrubbing uses a two-second horizon. `presentation`
+copies diagnostics, `is_animating` reports activity, and `error` reports native
+shaping/paint failures. Reduced motion settles without ongoing frame requests.
+
+Counts have a separate retained state and place-value matching:
+
+```rust
+use gpui::prelude::*;
+use gpui_ce_motion::{NumberEffect, NumberMotionState, Transition};
+
+let counter = NumberMotionState::default();
+
+let count = counter
+    .element("download-count", 199)
+    .effect(NumberEffect::Roll)
+    .min_digits(3)
+    .transition(Transition::default())
+    .opacity_transition(Transition::Tween(
+        std::time::Duration::from_millis(100),
+        gpui_ce_motion::Easing::EaseOut,
+    ))
+    .text_2xl();
+```
+
+Number effects are `Roll`, `Crossfade`, `Slide`, and rounded numeric `Interpolate`.
+Counts accept `i64`, including exact endpoints at its limits. Intermediate numeric
+interpolation uses f64. `text_state()` exposes the digit layer's controls and
+diagnostics, independently of numeric interpolation.
+
+The [text contracts](docs/TEXT.md) cover shaping, clipping, playback, accessibility,
+portable `TextPlaybackState`/`TextOptions`, errors, costs, and limits. This is
+single-style display text; editing, selection, and inline rich text stay with GPUI.
+Run the [Kit text gallery](integrations/gpui-kit/README.md#text-gallery) or stock-CE
+`cargo run --features demo --example text_motion` for interactive examples.
+
 ## SVG transforms
 
 Retain `SvgMotionState`; apply its frame to a normal GPUI SVG. Keep the asset path
@@ -999,8 +1149,9 @@ and opacity within `0..=1`. See the linked source declarations for each construc
 
 ## Public export index
 
-Every root export is listed below. Links open its declaration in the tagged
-0.1.0 source, with methods in the same module. Native-only types require `gpui`.
+Every public root export is listed below. Existing APIs link to tagged 0.1.0
+source; the unreleased text additions link to their current source modules.
+Methods live in the same modules. Native-only types require `gpui`.
 Element wrapper/frame types are usually returned by higher-level APIs.
 
 For generated method-level docs, run `cargo doc --no-deps --features gpui --open`.
@@ -1028,6 +1179,9 @@ See [documentation build status](docs/DEVELOPMENT.md#api-documentation) for the 
 | reorder native | [`ReorderElement`](https://github.com/1bye/gpui-motion/blob/v0.1.0/src/reorder_native.rs#L124), [`ReorderGroup`](https://github.com/1bye/gpui-motion/blob/v0.1.0/src/reorder_native.rs#L44)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | `gpui`           |
 | vector         | [`PathCommand`](https://github.com/1bye/gpui-motion/blob/v0.1.0/src/vector.rs#L6), [`PathError`](https://github.com/1bye/gpui-motion/blob/v0.1.0/src/vector.rs#L48), [`PathFrame`](https://github.com/1bye/gpui-motion/blob/v0.1.0/src/vector.rs#L302), [`PathMorphState`](https://github.com/1bye/gpui-motion/blob/v0.1.0/src/vector.rs#L217), [`PathShape`](https://github.com/1bye/gpui-motion/blob/v0.1.0/src/vector.rs#L69), [`StrokeReveal`](https://github.com/1bye/gpui-motion/blob/v0.1.0/src/vector.rs#L112)                                                                                                                                                                                                                                                                                                                                                                     | None             |
 | vector native  | [`VectorElement`](https://github.com/1bye/gpui-motion/blob/v0.1.0/src/vector_native.rs#L73), [`VectorState`](https://github.com/1bye/gpui-motion/blob/v0.1.0/src/vector_native.rs#L19)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | `gpui`           |
+| text options (unreleased) | [`TextUnit`, `TextMatch`, `TextClip`, `TextPreset`, `TextTarget`, `TextUnitInfo`, `Scramble`, `NumberEffect`, `TextOptions`, `TextError`, `text_ranges`](src/text/options.rs) | `text` |
+| text playback (unreleased) | [`TextLayoutUnit`, `TextPresentation`, `TextPlaybackState`](src/text/state.rs) | `text` |
+| text native (unreleased) | [`TextMotionState`, `TextElement`, `NumberMotionState`, `NumberElement`](src/text/native.rs) | `gpui` |
 
 ## Ownership in four rules
 

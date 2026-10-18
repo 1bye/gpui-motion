@@ -141,3 +141,34 @@ fn prepared_samples_and_controls_do_not_allocate() {
 
     assert_eq!(count, 0);
 }
+
+#[cfg(feature = "text")]
+#[test]
+fn prepared_text_sampling_and_scrubbing_do_not_allocate() {
+    let layout: Vec<_> = (0..200)
+        .map(|index| TextLayoutUnit::new("a", index, [index as f64 * 12., 0.], [12., 20.], 20.))
+        .collect();
+
+    let options = TextOptions {
+        scramble: Some(Scramble::new("ABC123")),
+        ..TextOptions::default()
+    };
+
+    let mut state = TextPlaybackState::default();
+
+    state.reconcile("prepared", &layout, &options, Duration::ZERO, false);
+    COUNT.with(|count| count.set(Some(0)));
+
+    for frame in 0..240 {
+        state.sample(Duration::from_millis(frame * 8), false, None);
+        state.sample(
+            Duration::from_millis(frame * 8),
+            false,
+            Some((frame % 100) as f64 / 100.),
+        );
+    }
+
+    let allocations = COUNT.with(|count| count.replace(None).unwrap());
+
+    assert_eq!(allocations, 0);
+}

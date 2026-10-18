@@ -151,6 +151,14 @@ impl MotionValue {
         self.target
     }
 
+    #[cfg(feature = "text")]
+    pub(crate) fn translate(&mut self, offset: f64) {
+        debug_assert_eq!(self.mode, Mode::Transition);
+        self.value = finite(self.value + offset);
+        self.from = finite(self.from + offset);
+        self.target = finite(self.target + offset);
+    }
+
     /// Last sampled velocity.
     pub fn velocity(&self) -> f64 {
         self.velocity

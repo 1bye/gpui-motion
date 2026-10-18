@@ -19,7 +19,7 @@ demo = ["gpui-kit/component", "gpui-kit/assets"]
 native-tests = ["gpui-kit/test-support"]
 
 [dependencies]
-gpui-ce-motion = { path = "../..", version = "0.1.0", default-features = false }
+gpui-ce-motion = { path = "../..", version = "0.1.0", default-features = false, features = ["text"] }
 gpui-kit = { version = "=0.7.3", default-features = false }
 
 [lints.rust]
@@ -47,4 +47,17 @@ required-features = ["native-tests"]
 
 [[test]]
 name = "kit_native"
+required-features = ["native-tests"]
+
+[[example]]
+name = "text_motion"
+required-features = ["demo"]
+
+[[test]]
+name = "text_native"
+required-features = ["native-tests"]
+
+[[bench]]
+name = "text_native"
+harness = false
 required-features = ["native-tests"]

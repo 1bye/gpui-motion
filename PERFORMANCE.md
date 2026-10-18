@@ -1,8 +1,9 @@
 # Performance history
 
-Results below were recorded in the original 1keep workspace before extraction;
+Early results were recorded in the original 1keep workspace before extraction;
 Git-pinned CE results are not measurements of the standalone registry demos.
-Use the commands below to reproduce measurements in this repository.
+Later sections identify standalone registry-backed measurements. Use their
+commands to reproduce the corresponding workloads.
 
 # Motion validation — 2026-10-16
 
@@ -547,3 +548,154 @@ pause/cancel/completion, command search/Enter, native planner drag/drop, and
 pipeline failure/retry preserving completed steps. Adapter tests exercise clock
 advancement, reversal continuity, and reduced-motion unmounting. Live macOS
 window inspection covers all six screens separately from the CPU benchmark.
+
+
+## Native text motion — 2026-10-18
+
+Standalone repository, macOS ARM64 / Rust 1.95.0, registry GPUI CE 0.2.2 and
+GPUI Kit 0.7.3 / gpui-pre 0.3.9. No backend source changes. Release binaries
+were built first; no Cargo builds ran concurrently with these measurements.
+The [text contracts](docs/TEXT.md) describe the API and backend limits.
+
+### Prepared sampling
+
+```sh
+cargo bench --locked --features text --bench text_sampling
+```
+
+Fifteen batches of 1,000 prepared units × 240 samples, advancing 8,333 µs per
+sample. Each batch starts a spring entrance with center stagger; the scramble
+variant keeps substitutions active for three seconds. Preparation, reconciliation,
+segmentation, shaping and native painting are outside timing. Settled units are
+still sampled as the two-second window advances.
+
+| Workload | Median ns/unit/sample | Batch P95 ns/unit/sample | Median ms/1,000 units/frame |
+| --- | ---: | ---: | ---: |
+| Spring entrance and stagger | 50.9 | 53.8 | 0.051 |
+| Spring entrance and deterministic scramble | 53.3 | 55.7 | 0.053 |
+
+The thread-local counting allocator test observes zero allocations across prepared
+text sampling and backward/forward scrubbing. Reconciliation and native frame
+construction allocate; this is not a claim of allocation-free native rendering.
+
+### Native CPU preparation
+
+```sh
+cargo bench --locked --features native-tests --bench text_native
+cargo bench --manifest-path integrations/gpui-kit/Cargo.toml --locked --features demo,native-tests --bench text_native
+```
+
+Both backends use the same fixture: 40 labels, seven fresh contexts per mode,
+24 warmup + 240 measured frames, and an executor clock advancing 8,333 µs/frame.
+Content changes every 24 frames, interrupting ongoing entrances and reflow.
+The settled mode uses grapheme units and never changes its content. Timings
+include view construction, invalidated text-unit preparation, cache lookup,
+matching, framework layout, prepaint, paint preparation and frame cleanup.
+TestPlatform's `NoopTextSystem` supplies synthetic font metrics and glyphs, alongside
+display/GPU doubles. Platform font shaping and glyph rasterization are not measured;
+these timings describe adapter/framework overhead with simplified text shaping.
+
+| Workload | CE median batch mean, ms/frame | CE aggregate P95, ms | Kit median batch mean, ms/frame | Kit aggregate P95, ms |
+| --- | ---: | ---: | ---: | ---: |
+| Ordinary text with replacement | 0.279 | 0.333 | 0.271 | 0.319 |
+| Settled grapheme adapter | 0.385 | 0.499 | 0.372 | 0.485 |
+| Interrupted word motion | 0.426 | 0.538 | 0.419 | 0.526 |
+| Interrupted grapheme motion | 0.553 | 0.772 | 0.542 | 0.766 |
+| Grapheme motion and scramble | 0.571 | 0.794 | 0.560 | 0.783 |
+
+These are feature workloads, including outgoing fragments, rather than identical
+rendered-output comparisons or isolated sampler overheads. Earlier Kit runs
+measured words at 0.431–0.498 ms and graphemes at 0.576–0.654 ms. Shared-desktop variation and
+fixed mode order prevent interpreting small differences between modes or backends as an optimization or a backend
+ranking. These are
+local CPU measurements, not GPU completion, display cadence, energy, or a frame
+rate guarantee. Raw final logs are retained in ignored `target/text-motion-validation/`.
+
+### Behavior and release checks
+
+Seventeen portable text tests cover Unicode segmentation, stable duplicate matching,
+exit reclamation, smooth spring reversal, latest-only wait mode, reduced motion,
+scramble, typewriter timing, coordinate anchoring, scrubbing and playback.
+Two clip regressions were observed failing before their fixes: resuming from a
+scrub applied offsets twice, and staggered clips replayed their original hold.
+Both now preserve the held presentation when playback resumes. Two additional
+fail-before-fix tests cover replay using the latest declared stagger and a
+wait-mode release preserving each unit’s staggered scrub cursor.
+
+Seven native text tests run on each backend, using production adapter/layout code
+with synthetic fonts, including centered width changes without a position jump,
+event-handler controls, number place identities, and one semantic accessibility
+label. Five production Kit-gallery interaction tests exercise editing, buttons, pointer-driven
+scrubbing, reduced motion and changing counts. A native accessibility regression
+failed before the label role was added and passes on both backends afterward.
+
+Both real macOS galleries were launched. Checks covered CE effect/text changes,
+Unicode/emoji rendering and reduced motion, plus Kit input/mode changes and count
+controls. The live Kit accessibility tree exposes the requested label once and
+updates its count target. Wrapped mixed-direction Arabic reproduces the same
+incorrect break in an ordinary GPUI label; the limitation and workarounds are
+explicit in the text contracts. Screen-reader announcements, other platforms,
+GPU execution and presentation timing remain outside this validation.
+
+
+## Text exit cleanup — 2026-10-18
+
+The recording exposed two reproducible defects: a 20 px em-based slide inside a
+36 px slot left visible fragments, and outgoing slide/wipe units stayed fully
+opaque until their positional transition completed. A native regression also
+reproduced 24 px travel inside a 72 px line box. Those assertions failed before
+the fix and pass afterward on both native backends.
+
+SlideUp now travels by the complete measured unit height. SlideUp, rolling/sliding
+counts, and wipes give outgoing opacity a separate 100 ms ease-out transition.
+Movement and reveal retain their declared timing. Custom `y_relative` targets
+and `opacity_transition` declarations work during scrubbing, resume and reentry;
+rapid replacements retain matching identities and never restart old exit fades.
+Both galleries use the corrected shared line preset.
+
+The final checks pass: 21 portable text tests, eight native text tests on each
+backend, six production Kit-gallery interaction tests, zero-allocation prepared
+sampling, strict Clippy/rustdoc, and 34 compiled/Dylint-checked README examples.
+The full CE suite passes too. New cases cover tall line boxes, rapid counter
+updates, caller-overridden fade timing, reentry continuity, independent scrubbing,
+and rapid changes through the actual Lines gallery button.
+
+Release benchmark workloads and host match the preceding text section. The
+pre-fix binaries were measured before rebuilding. No Cargo builds ran during
+measurements. Prepared sampling measured 54.3 → 51.3 ns/unit/sample for springs,
+and 56.6 → 53.6 ns with scramble; those small differences do not establish a
+speedup. Native Kit CPU preparation measured these median batch means:
+
+| Workload | Before, ms/frame | After, first run | After, repeat |
+| --- | ---: | ---: | ---: |
+| Ordinary text replacement | 0.293 | 0.280 | 0.270 |
+| Settled grapheme adapter | 0.372 | 0.390 | 0.374 |
+| Interrupted words | 0.423 | 0.524 | 0.426 |
+| Interrupted graphemes | 0.550 | 0.643 | 0.549 |
+| Graphemes and scramble | 0.567 | 0.575 | 0.567 |
+
+The first after-run had elevated word/grapheme costs and P95; a single repeat
+returned to the previous range. These shared-desktop timings support no isolated
+speedup or slowdown claim. They measure common adapter overhead, rather than
+specifically benchmarking the corrected line/wipe/count effects. The affected
+geometry and fade timing are verified separately by the behavioral regressions.
+TestPlatform substitutes fonts/display/GPU; no native font or GPU timing is claimed.
+Raw before/after logs are in ignored `target/text-motion-validation/exit-fix/`.
+
+The corrected native gallery was rebuilt and launched, and the Lines controls
+updated the semantic target. Screenshot capture returned distorted miniature
+window images and a later native UI operation timed out, so this run does not
+establish a clean live visual acceptance check. Native frame-geometry/opacity
+assertions and real production interaction tests remain the regression evidence.
+The previously documented backend Arabic wrapping limitation is separate.
+
+
+### Display-font workaround acceptance
+
+Later live macOS checks reproduced a truncated system-font zero in ordinary GPUI
+text as well as the animated label. Both demos now select Helvetica Neue for all
+animated text and counters on macOS. C and zero were inspected in both rebuilt
+native previews, with additional Kit word/wipe checks and rolling counters on both
+backends. This is a demo font workaround; the library still inherits the host's
+font. The checks establish the observed glyph outlines at the tested display scale,
+not a fix to GPUI's system-font renderer or a new performance measurement.

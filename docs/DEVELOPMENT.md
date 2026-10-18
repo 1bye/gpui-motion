@@ -24,8 +24,13 @@ Replace `motion_showcase` with any example below:
 | [motion_features](../examples/motion_features.rs) | Keyframes, timeline controls, variants, colors, drag, scroll, keyed presence |
 | [motion_native](../examples/motion_native.rs) | Native gestures, reorder, measured sizing, popped exits, styles, vectors |
 | [layout_motion](../examples/layout_motion.rs) | Animated wrapping, alignment, insertion/removal, and reordered positions |
+| [text_motion](../examples/text_motion.rs) | Twelve text modes, matching/reflow, scramble, playback and animated counts |
 | [svg_motion](../examples/svg_motion.rs) | SVG scale/rotation, mirroring, full turns, interruption |
 | [gpui_eval](../examples/gpui_eval.rs) | Native redraw/performance comparison; see below |
+
+The separate [Kit text gallery](../integrations/gpui-kit/README.md#text-gallery)
+adds editable input, pointer-driven scrubbing and count controls using Kit-native
+components. See [text contracts](TEXT.md) for the complete API.
 
 ### Showcase controls
 
@@ -73,6 +78,7 @@ These checks use the repository's stable Rust toolchain, edition 2024, Rust 1.95
 ```sh
 cargo fmt --all --check
 cargo test --locked --no-default-features
+cargo test --locked --no-default-features --features text
 cargo test --locked --features gpui
 cargo test --locked --features demo,native-tests
 cargo test --locked --features demo,native-tests --example motion_showcase
@@ -107,12 +113,16 @@ published 0.1.0 metadata cannot be replaced in the repository alone.
 cargo bench --locked --bench sampling
 cargo bench --locked --features native-tests --bench layout_native
 cargo bench --locked --features native-tests --bench advanced_native
+cargo bench --locked --features text --bench text_sampling
+cargo bench --locked --features native-tests --bench text_native
 ```
 
 | Benchmark | Measures | Does not measure |
 | --- | --- | --- |
 | `sampling` | Prepared sampler work across targets, clips, colors, values, SVGs, styles, paths | Native layout/paint or GPU execution |
 | `layout_native` | View construction, layout, prepaint, paint preparation on TestPlatform | GPU completion or presentation |
+| `text_sampling` | Prepared text-unit sampling and deterministic scramble | Matching, shaping or native rendering |
+| `text_native` | Text shaping, cache invalidation, matching, layout and glyph preparation | GPU execution or screen presentation |
 | `advanced_native` | Native style, gesture, sizing, reorder, shared-layout, and vector preparation | Actual blur GPU cost or screen scanout |
 
 For a native-window probe:

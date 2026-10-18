@@ -635,7 +635,7 @@ impl AnimationState {
 }
 
 /// Origin of a staggered group.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum StaggerFrom {
     /// First child starts first.
     Start,
@@ -816,5 +816,11 @@ impl Timeline {
     /// Whether sampled tracks or future tracks require another frame.
     pub fn is_animating(&self) -> bool {
         self.active
+    }
+}
+
+impl PartialEq for Animation {
+    fn eq(&self, other: &Self) -> bool {
+        self.same(other)
     }
 }
