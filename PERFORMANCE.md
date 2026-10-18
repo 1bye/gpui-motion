@@ -521,3 +521,29 @@ Windows/Linux execution, alternate display scales, screen-reader interaction,
 OS-wide pointer capture and GPU performance remain unverified. General subtree
 transforms/full size projection and browser APIs remain outside the implemented
 stock-CE equivalents. No crate was published.
+
+
+## GPUI Kit integration — 2026-10-18
+
+The standalone [Kit showcase](integrations/gpui-kit/README.md) binds the portable
+engine to registry GPUI Kit 0.7.3 / gpui-pre 0.3.9, with no CE or Kit fork.
+Its release benchmark compares 400 identical small rectangles under direct
+layout, disabled position interpolation, and animated measured positions.
+Seven fresh TestPlatform contexts per mode run 24 warmup + 240 measured frames,
+advancing the executor clock by 8,333 microseconds per frame. Width changes every
+24 frames and keyed order reverses every 48 frames, interrupting ongoing motion.
+
+On macOS ARM64 / Rust 1.95.0, the final run after other builds finished measured
+1.259 ms median batch mean / 1.397 ms aggregate P95 for direct layout,
+1.779 / 2.004 ms for tracking without interpolation, and 2.014 / 2.294 ms for
+animated positions. Run commands and the comparison table live in the linked
+README. These are CPU construction/layout/prepaint/paint preparation timings;
+TestPlatform substitutes the display/GPU. They establish neither GPU completion
+nor screen presentation, and do not benchmark the six product screens.
+
+Production-view interaction tests cover inbox archive/undo, mid-exit keyboard
+undo without a position jump, asset search/inspector collapse, simulated transfer
+pause/cancel/completion, command search/Enter, native planner drag/drop, and
+pipeline failure/retry preserving completed steps. Adapter tests exercise clock
+advancement, reversal continuity, and reduced-motion unmounting. Live macOS
+window inspection covers all six screens separately from the CPU benchmark.

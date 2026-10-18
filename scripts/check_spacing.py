@@ -57,12 +57,14 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--fix', action='store_true', help='Apply machine-applicable whitespace fixes')
     parser.add_argument('--library', type=Path, help='Use a local lint checkout while developing the shared policy')
+    parser.add_argument('--project', type=Path, default=Path(__file__).resolve().parents[1], help='Cargo package to check')
+    parser.add_argument('--sources-only', action='store_true', help='Check Rust targets without extracting README examples')
     args = parser.parse_args()
-    project = Path(__file__).resolve().parents[1]
+    project = args.project.resolve()
 
     try:
         source_result = check_sources(project, args.fix, args.library)
-        readme_result = check_readme(project, project / 'README.md', args.fix, args.library)
+        readme_result = 0 if args.sources_only else check_readme(project, project / 'README.md', args.fix, args.library)
         raise SystemExit(source_result or readme_result)
     except (ValueError, subprocess.CalledProcessError) as error:
         parser.exit(1, f'{error}\n')

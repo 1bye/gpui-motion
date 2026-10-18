@@ -1055,6 +1055,18 @@ Arbitrary element-tree scale/rotation/skew/perspective and full layout projectio
 are deferred. This is a Motion-inspired Rust API, not JavaScript/React API parity.
 Read [COVERAGE.md](COVERAGE.md) for exact contracts and exclusions.
 
+## GPUI Kit examples
+
+The [Motion / Kit showcase](integrations/gpui-kit/README.md) contains six product
+flows: inbox and undo, asset inspection, downloads, document search, a draggable
+planner, and an automation runner. It uses a separate Kit-native adapter over the
+same portable engine. GPUI Kit 0.7.3 uses a different GPUI backend from CE, so its
+native elements do not mix with the CE adapters above.
+
+```sh
+cargo run --manifest-path integrations/gpui-kit/Cargo.toml --features demo --example showcase
+```
+
 ## Explore and contribute
 
 - [Demos and showcase controls](docs/DEVELOPMENT.md#demos)

@@ -1,0 +1,50 @@
+[package]
+name = "gpui-motion-kit"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.95"
+publish = false
+description = "GPUI Kit adapters and product examples for gpui-ce-motion"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/1bye/gpui-motion"
+
+[workspace]
+
+[workspace.metadata.dylint]
+libraries = [{ git = "https://github.com/1bye/workflow", rev = "f62c7d7dcdf3ffd9b77de95a523544a0c688bb9b", pattern = "rust/spacing" }]
+
+[features]
+default = []
+demo = ["gpui-kit/component", "gpui-kit/assets"]
+native-tests = ["gpui-kit/test-support"]
+
+[dependencies]
+gpui-ce-motion = { path = "../..", version = "0.1.0", default-features = false }
+gpui-kit = { version = "=0.7.3", default-features = false }
+
+[lints.rust]
+missing_docs = "warn"
+unsafe_op_in_unsafe_fn = "deny"
+
+[lints.clippy]
+dbg_macro = "warn"
+todo = "warn"
+undocumented_unsafe_blocks = "warn"
+
+[profile.dev]
+debug = 0
+incremental = false
+
+[[example]]
+name = "showcase"
+path = "examples/showcase/main.rs"
+required-features = ["demo"]
+
+[[bench]]
+name = "kit_layout"
+harness = false
+required-features = ["native-tests"]
+
+[[test]]
+name = "kit_native"
+required-features = ["native-tests"]
