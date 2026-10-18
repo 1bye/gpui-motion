@@ -76,6 +76,6 @@ jobs:
       - run: rustup toolchain install nightly-2026-08-20 --profile minimal --component rustc-dev,llvm-tools-preview,rust-src
       - run: cargo +nightly-2026-08-20 install cargo-dylint dylint-link --version 6.2.0 --locked
       - run: cargo publish --dry-run --locked
-      - run: cargo check --locked --manifest-path target/package/gpui-motion-kit-0.2.0/Cargo.toml --target-dir target --features demo --examples
+      - run: cargo check --locked --manifest-path target/package/gpui-motion-kit-0.3.0/Cargo.toml --target-dir target --features demo --examples
       - run: python3 ../../scripts/check_spacing.py --project .
       - run: cargo bench --locked --features demo,native-tests --bench helpers_native

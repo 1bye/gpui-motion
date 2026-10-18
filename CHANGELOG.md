@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased — GPUI Kit helpers
+## gpui-motion-kit 0.3.0
 
 - Add Kit-native style application, hover/press/focus/drag/in-view bindings,
   measured scroll mapping, intrinsic sizing, reorder, popped exits and shared
@@ -11,7 +11,6 @@
   wrappers. Report unsupported element/backdrop blur explicitly on stock Kit.
 - Add an eight-scene helper gallery, native-control tests, shared CE/Kit geometry
   regression fixtures, CPU preparation benchmarks and executable README examples.
-
 
 ## gpui-motion-kit 0.2.0
 

@@ -1221,7 +1221,7 @@ No direct `gpui-ce-motion` dependency or CE-specific `gpui` feature is needed.
 
 ```toml
 [dependencies]
-gpui-motion-kit = "0.2"
+gpui-motion-kit = "0.3"
 gpui-kit = { version = "=0.7.3", features = ["component", "assets"] }
 ```
 
@@ -1232,11 +1232,11 @@ use a different integration.
 
 The [Kit README](integrations/gpui-kit/README.md) includes a complete runnable
 button/panel application and examples for enter/exit, animated text and numbers,
-position-only layout, and scalar values. Its published API reference is available on
-[docs.rs](https://docs.rs/gpui-motion-kit/latest/gpui_motion_kit/). The unreleased checkout additionally provides native style, gesture/scroll,
-measured sizing, reorder/popped-exit/shared-position, clip/timeline and SVG helpers.
-The Kit README documents every helper and the stock renderer's filter/transform
-limits; use its path-dependency setup until the next Kit release.
+position-only layout, and scalar values. Version **0.3.0** adds native style,
+gesture/scroll, measured sizing, reorder/popped-exit/shared-position, clip/timeline
+and SVG helpers. The [API reference](https://docs.rs/gpui-motion-kit/latest/gpui_motion_kit/)
+and Kit README document these helpers and the stock renderer's filter/transform
+limits.
 
 The [Motion / Kit showcase](integrations/gpui-kit/README.md#product-examples) contains
 six interactive flows: inbox and undo, asset inspection, downloads, document

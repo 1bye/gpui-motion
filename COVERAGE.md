@@ -119,7 +119,7 @@ See [text contracts](docs/TEXT.md) for the two-second spring scrub horizon, nume
 precision, native composition costs and typography/accessibility limits. General
 transforms, outline morphs, editable text, rich spans and font axes remain excluded.
 
-## GPUI Kit native helpers (unreleased)
+## GPUI Kit native helpers (gpui-motion-kit 0.3.0)
 
 Kit 0.7.3's default `gpui-pre` backend has native bindings for motion/presence,
 styles, gestures/drag/in-view, measured scroll mapping, position layout,

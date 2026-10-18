@@ -204,9 +204,9 @@ python3 scripts/test_readme_integration.py -v
 
 ## Kit helper gallery and performance checks
 
-The unreleased Kit helper expansion uses stock `gpui-kit =0.7.3` and the published
-portable engine. Its public API examples live in the
-[Kit README](../integrations/gpui-kit/README.md), with a path-dependency setup.
+The Kit helpers use stock `gpui-kit =0.7.3` and the published portable engine.
+Their public API examples and registry setup live in the
+[Kit README](../integrations/gpui-kit/README.md).
 
 ```sh
 cargo run --manifest-path integrations/gpui-kit/Cargo.toml --features demo --example helpers

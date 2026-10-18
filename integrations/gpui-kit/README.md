@@ -10,18 +10,14 @@ frame scheduling, and reduced-motion preference. No JavaScript or renderer fork.
 [Published API reference](https://docs.rs/gpui-motion-kit/latest/gpui_motion_kit/) ·
 [Product examples](#product-examples) · [Text gallery](#text-gallery)
 
-**Development note:** the native-helper expansion below is unreleased. Published
-`0.2.0` has transitions/presence, scalar values, position layout, vectors and text.
-To use the added helpers now, replace the registry dependency with a checkout:
-
-```toml
-gpui-motion-kit = { path = "../gpui-motion/integrations/gpui-kit" }
-```
+Version **0.3.0** adds native style, input, scroll, measured sizing, reorder,
+shared-position, playback and SVG transform helpers over the same shared engine.
+Explore them in the [eight-scene helper gallery](#helper-gallery).
 
 ## Install
 
 ```sh
-cargo add gpui-motion-kit@0.2
+cargo add gpui-motion-kit@0.3
 cargo add gpui-kit@=0.7.3 --features component,assets
 ```
 
@@ -29,7 +25,7 @@ Or add these dependencies to your application:
 
 ```toml
 [dependencies]
-gpui-motion-kit = "0.2"
+gpui-motion-kit = "0.3"
 gpui-kit = { version = "=0.7.3", features = ["component", "assets"] }
 ```
 

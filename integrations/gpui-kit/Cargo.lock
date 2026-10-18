@@ -2588,7 +2588,7 @@ dependencies = [
 
 [[package]]
 name = "gpui-motion-kit"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "gpui-ce-motion",
  "gpui-kit",

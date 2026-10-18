@@ -84,10 +84,11 @@ has no third-party dependencies.
 ## GPUI Kit adapter
 
 `integrations/gpui-kit` is an independently published crate using the portable
-engine without its CE-native feature. Keep its version aligned with the core;
-publish a required new core version before publishing the adapter. Its dependency
-includes both a development path and a registry version, so Cargo resolves the
-published core when verifying the archive.
+engine without its CE-native feature. Version the adapter independently, keeping
+its declared core dependency compatible. Publish any required new core version
+before publishing the adapter. Kit 0.3.0 uses the existing core 0.2.0 release.
+The dependency includes both a development path and a registry version, so Cargo
+resolves the published core when verifying the archive.
 
 From the repository root:
 
@@ -103,7 +104,7 @@ RUSTDOCFLAGS="-D warnings" cargo doc --manifest-path integrations/gpui-kit/Cargo
 python3 scripts/check_spacing.py --project integrations/gpui-kit
 cargo package --manifest-path integrations/gpui-kit/Cargo.toml --list
 cargo publish --manifest-path integrations/gpui-kit/Cargo.toml --dry-run --locked
-cargo check --locked --manifest-path integrations/gpui-kit/target/package/gpui-motion-kit-0.2.0/Cargo.toml --target-dir integrations/gpui-kit/target --features demo --examples
+cargo check --locked --manifest-path integrations/gpui-kit/target/package/gpui-motion-kit-0.3.0/Cargo.toml --target-dir integrations/gpui-kit/target --features demo --examples
 ```
 
 The archive includes the library, README, license notices, demos, and demo assets.
