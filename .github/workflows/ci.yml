@@ -23,6 +23,10 @@ jobs:
         env:
           DOCS_RS: "1"
           RUSTDOCFLAGS: -D warnings
+      - name: Install Kit documentation prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libfontconfig-dev
       - run: cargo doc --manifest-path integrations/gpui-kit/Cargo.toml --locked --no-deps --target x86_64-unknown-linux-gnu
         env:
           DOCS_RS: "1"
