@@ -100,12 +100,14 @@ Generate the full method/variant reference locally:
 cargo doc --no-deps --features gpui --open
 ```
 
-The [hosted 0.1.0 build](https://docs.rs/crate/gpui-ce-motion/0.1.0/builds/4898447)
-failed: its published metadata selects an Apple target, but the Linux builder's
-C compiler rejects the macOS flags used by `psm`. Local macOS documentation builds
-pass. The API guide links to tagged source so every export remains reachable.
-A future release needs a docs.rs-compatible target and a verified Linux docs build;
-published 0.1.0 metadata cannot be replaced in the repository alone.
+Version 0.2.0 builds the [hosted API reference](https://docs.rs/gpui-ce-motion/0.2.0/gpui_ce_motion/)
+on `x86_64-unknown-linux-gnu` with the native `gpui` feature enabled. CI checks the
+same documentation target on Linux with warnings denied. The documentation target
+does not establish native Linux window-system or GPU behavior.
+
+The older [0.1.0 build](https://docs.rs/crate/gpui-ce-motion/0.1.0/builds/4898447)
+failed while cross-compiling macOS dependencies on the Linux builder. Its published
+metadata cannot be replaced; use the 0.2.0 reference or generate docs locally.
 
 ## Benchmarks
 

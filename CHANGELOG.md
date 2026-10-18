@@ -1,24 +1,24 @@
 # Changelog
 
-## Unreleased
+## 0.2.0
 
-- Use a display-safe font for all animated labels and counters in both macOS
-  text galleries to avoid clipped glyphs also seen in ordinary system-font text.
-
-- Correct masked text travel to use measured unit heights. Slide/roll and wipe
-  exits fade independently over 100 ms, preventing lingering fragments during
-  rapid replacements. Expose `y_relative` and independent `opacity_transition`
-  for custom text and number transitions.
-
-- Native text motion on stock GPUI CE and GPUI Kit: whole labels, words,
+- Add native text motion on stock GPUI CE and GPUI Kit: whole labels, words,
   graphemes and visual lines, with presets, custom targets, stagger, content
   matching, position reflow, masks, scramble and prepared keyframes.
-- Interruptible text presence, playback/scrubbing, reduced motion, semantic
-  accessibility labels, and rolling/fading/sliding/interpolated counts.
-- Interactive text galleries for both backends, public API and native behavior
+- Add interruptible text presence, playback and scrubbing, reduced motion,
+  semantic accessibility labels, and rolling/fading/sliding/interpolated counts.
+- Add a GPUI Kit adapter and six product examples: inbox, assets, downloads,
+  command palette, planner, and automation, with native interaction tests.
+- Add editable text galleries for both backends, public API and native behavior
   tests, allocation checks, and portable/native CPU benchmarks.
-- Optional `text` support adds Unicode segmentation; default features remain
+- Add optional `text` support for Unicode segmentation; default features remain
   dependency-free. Native adapters enable text support automatically.
+- Correct masked text travel using measured unit heights. Slide/roll and wipe
+  exits fade independently over 100 ms, preventing lingering fragments during
+  rapid replacements. Expose `y_relative` and `opacity_transition` for custom timing.
+- Use a display-safe font for all animated labels and counters in both macOS
+  text galleries to avoid clipped glyphs also seen in ordinary system-font text.
+- Build hosted API documentation on Linux and verify that target in CI.
 
 ## 0.1.0
 

@@ -1,10 +1,10 @@
 [package]
 name = "gpui-ce-motion"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 rust-version = "1.95"
 publish = ["crates-io"]
-description = "Declarative, interruptible motion and presence for native GPUI CE applications"
+description = "Declarative, interruptible animations, transitions, and text motion for GPUI CE"
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/1bye/gpui-motion"
@@ -40,7 +40,8 @@ gpui_platform = { package = "gpui_ce_platform", version = "=0.1.0", optional = t
 
 [package.metadata.docs.rs]
 features = ["gpui"]
-default-target = "aarch64-apple-darwin"
+default-target = "x86_64-unknown-linux-gnu"
+targets = []
 
 [[bench]]
 name = "sampling"

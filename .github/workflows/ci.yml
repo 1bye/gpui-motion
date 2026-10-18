@@ -14,6 +14,15 @@ jobs:
       - run: cargo test --locked --no-default-features
       - run: cargo test --locked --no-default-features --features text
       - run: cargo clippy --locked --no-default-features --features text --all-targets -- -D warnings
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: rustup toolchain install stable --profile minimal
+      - run: cargo doc --locked --no-deps --features gpui --target x86_64-unknown-linux-gnu
+        env:
+          DOCS_RS: "1"
+          RUSTDOCFLAGS: -D warnings
   native:
     runs-on: macos-latest
     steps:
