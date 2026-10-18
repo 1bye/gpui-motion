@@ -191,7 +191,9 @@ between them. Documentation and attributes stay attached to their definition.
 Struct fields and enum variants stay compact, as do adjacent single-line imports,
 module declarations, constants, statics, or type aliases within their own group.
 
-README examples compile as isolated consumer scopes with GPUI enabled. Diagnostics
+README examples compile as isolated consumer scopes against their own backend:
+the root README uses CE, and the Kit README uses the Kit adapter. Run the latter
+with `python3 scripts/check_spacing.py --project integrations/gpui-kit`. Diagnostics
 report README line numbers; fixes preserve prose and non-whitespace code. Ignored
 and compile-fail examples are rejected rather than silently skipped.
 

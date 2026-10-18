@@ -1,6 +1,6 @@
 # Release preparation
 
-Package: `gpui-ce-motion` · repository: https://github.com/1bye/gpui-motion
+Packages: `gpui-ce-motion` and `gpui-motion-kit` · repository: https://github.com/1bye/gpui-motion
 
 The GitHub CI workflow validates changes only; it has no publishing step or
 crates.io credentials.
@@ -80,3 +80,42 @@ Use the same GPUI CE source and version throughout the consuming application.
 Enable `demo` only to run this repository's examples; it adds platform backends.
 Keep `native-tests` for development checks. The default build is portable and
 has no third-party dependencies.
+
+## GPUI Kit adapter
+
+`integrations/gpui-kit` is an independently published crate using the portable
+engine without its CE-native feature. Keep its version aligned with the core;
+publish a required new core version before publishing the adapter. Its dependency
+includes both a development path and a registry version, so Cargo resolves the
+published core when verifying the archive.
+
+From the repository root:
+
+```sh
+cargo fmt --manifest-path integrations/gpui-kit/Cargo.toml --all --check
+cargo test --manifest-path integrations/gpui-kit/Cargo.toml --locked --features demo,native-tests
+cargo test --manifest-path integrations/gpui-kit/Cargo.toml --locked --features demo,native-tests --example showcase
+cargo test --manifest-path integrations/gpui-kit/Cargo.toml --locked --features demo,native-tests --example text_motion
+cargo clippy --manifest-path integrations/gpui-kit/Cargo.toml --locked --all-targets --features demo,native-tests -- -D warnings
+RUSTDOCFLAGS="-D warnings" cargo doc --manifest-path integrations/gpui-kit/Cargo.toml --locked --no-deps
+python3 scripts/check_spacing.py --project integrations/gpui-kit
+cargo package --manifest-path integrations/gpui-kit/Cargo.toml --list
+cargo publish --manifest-path integrations/gpui-kit/Cargo.toml --dry-run --locked
+cargo check --locked --manifest-path integrations/gpui-kit/target/package/gpui-motion-kit-0.2.0/Cargo.toml --target-dir integrations/gpui-kit/target --features demo --examples
+```
+
+The archive includes the library, README, license notices, demos, and demo assets.
+Native tests and benchmarks reuse fixtures outside the adapter folder and remain
+in the Git repository. The archive's example check verifies that no sibling
+checkout is needed. CI runs that check and compiles both READMEs against their
+respective backends. Docs.rs uses the Linux target covered by the docs CI job.
+
+After the release commit passes CI, publish explicitly:
+
+```sh
+cargo publish --manifest-path integrations/gpui-kit/Cargo.toml --locked
+```
+
+For adapter-only releases, use a distinct `gpui-motion-kit-v<version>` tag so it
+does not move the core's existing `v<version>` tag. Verify a registry-only Kit
+consumer and the hosted Kit documentation after publishing.

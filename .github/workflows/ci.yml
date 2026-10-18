@@ -23,6 +23,10 @@ jobs:
         env:
           DOCS_RS: "1"
           RUSTDOCFLAGS: -D warnings
+      - run: cargo doc --manifest-path integrations/gpui-kit/Cargo.toml --locked --no-deps --target x86_64-unknown-linux-gnu
+        env:
+          DOCS_RS: "1"
+          RUSTDOCFLAGS: -D warnings
   native:
     runs-on: macos-latest
     steps:
@@ -66,4 +70,6 @@ jobs:
       - run: cargo build --locked --features demo --examples
       - run: rustup toolchain install nightly-2026-08-20 --profile minimal --component rustc-dev,llvm-tools-preview,rust-src
       - run: cargo +nightly-2026-08-20 install cargo-dylint dylint-link --version 6.2.0 --locked
-      - run: python3 ../../scripts/check_spacing.py --project . --sources-only
+      - run: cargo publish --dry-run --locked
+      - run: cargo check --locked --manifest-path target/package/gpui-motion-kit-0.2.0/Cargo.toml --target-dir target --features demo --examples
+      - run: python3 ../../scripts/check_spacing.py --project .

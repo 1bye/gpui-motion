@@ -3,10 +3,20 @@ name = "gpui-motion-kit"
 version = "0.2.0"
 edition = "2024"
 rust-version = "1.95"
-publish = false
-description = "GPUI Kit adapters and product examples for gpui-ce-motion"
+publish = ["crates-io"]
+description = "Declarative, interruptible animations and text motion for GPUI Kit"
+readme = "README.md"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/1bye/gpui-motion"
+documentation = "https://docs.rs/gpui-motion-kit"
+keywords = ["gpui", "animation", "spring", "native", "ui"]
+categories = ["gui", "graphics"]
+# Native tests/benchmarks share fixtures with the CE crate in the repository.
+include = ["src/**", "examples/**", "README.md", "LICENSE-*", "Cargo.toml"]
+
+[package.metadata.docs.rs]
+default-target = "x86_64-unknown-linux-gnu"
+targets = []
 
 [workspace]
 

@@ -1,5 +1,15 @@
 # Changelog
 
+## gpui-motion-kit 0.2.0
+
+- Publish the Kit-native adapter as a separate crates.io package over the shared
+  `gpui-ce-motion` 0.2 engine, targeting GPUI Kit 0.7.3's default backend.
+- Add registry setup, a complete Kit application, and native API examples to the
+  README; compile and lint Kit README examples in CI.
+- Include runnable product/text demos, assets, and license notices in the archive;
+  verify the package and its examples against the published core before release.
+- Cover the hosted Kit API documentation's Linux build in CI.
+
 ## 0.2.0
 
 - Add native text motion on stock GPUI CE and GPUI Kit: whole labels, words,

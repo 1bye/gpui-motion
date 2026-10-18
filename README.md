@@ -7,7 +7,7 @@ transitions, springs, and interruptions using stock GPUI CE—no React or render
 
 [Crates.io](https://crates.io/crates/gpui-ce-motion) ·
 [API examples](#api) · [API reference](https://docs.rs/gpui-ce-motion/latest/gpui_ce_motion/) ·
-[Demos](docs/DEVELOPMENT.md#demos) · [Kit examples](integrations/gpui-kit/README.md) ·
+[Demos](docs/DEVELOPMENT.md#demos) · [GPUI Kit setup](#gpui-kit) ·
 [Changelog](CHANGELOG.md)
 
 Version **0.2.0** adds text and number animations: animate labels, words, letters,
@@ -15,6 +15,8 @@ wrapped lines, and counters with the same interruption and playback controls.
 See [text motion](#text-motion) for the complete API and runnable galleries.
 
 ## Install
+
+For **GPUI Kit**, use [`gpui-motion-kit`](#gpui-kit). The installation below is for GPUI CE.
 
 ```sh
 cargo add gpui-ce-motion@0.2 --features gpui
@@ -1211,16 +1213,36 @@ Arbitrary element-tree scale/rotation/skew/perspective and full layout projectio
 are deferred. This is a Motion-inspired Rust API, not JavaScript/React API parity.
 Read [COVERAGE.md](COVERAGE.md) for exact contracts and exclusions.
 
-## GPUI Kit examples
+## GPUI Kit
 
-The [Motion / Kit showcase](integrations/gpui-kit/README.md) contains six product
-flows: inbox and undo, asset inspection, downloads, document search, a draggable
-planner, and an automation runner. It uses a separate Kit-native adapter over the
-same portable engine. GPUI Kit 0.7.3 uses a different GPUI backend from CE, so its
-native elements do not mix with the CE adapters above.
+Use **[`gpui-motion-kit`](https://crates.io/crates/gpui-motion-kit)** in a Kit application.
+It connects this same animation engine to Kit's elements and frame scheduler.
+No direct `gpui-ce-motion` dependency or CE-specific `gpui` feature is needed.
+
+```toml
+[dependencies]
+gpui-motion-kit = "0.2"
+gpui-kit = { version = "=0.7.3", features = ["component", "assets"] }
+```
+
+Requires Rust 1.95+ and **GPUI Kit 0.7.3's default `gpui-pre` backend**. Kit and CE
+native types cannot be mixed; import native states from `gpui_motion_kit` and
+portable declarations from `gpui_motion_kit::core`. The CE-native examples above
+use a different integration.
+
+The [Kit README](integrations/gpui-kit/README.md) includes a complete runnable
+button/panel application and examples for enter/exit, animated text and numbers,
+position-only layout, and scalar values. Its API reference is available on
+[docs.rs](https://docs.rs/gpui-motion-kit/latest/gpui_motion_kit/). It also documents
+which CE-specific helpers do not yet have Kit bindings.
+
+The [Motion / Kit showcase](integrations/gpui-kit/README.md#product-examples) contains
+six interactive flows: inbox and undo, asset inspection, downloads, document
+search, a draggable planner, and an automation runner. Run from this checkout:
 
 ```sh
 cargo run --manifest-path integrations/gpui-kit/Cargo.toml --features demo --example showcase
+cargo run --manifest-path integrations/gpui-kit/Cargo.toml --features demo --example text_motion
 ```
 
 ## Explore and contribute

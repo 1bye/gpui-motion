@@ -1,7 +1,8 @@
 """Covers fenced-example extraction and byte-accurate diagnostic/fix mapping."""
 
 import unittest
-from check_readme import apply_fixes, examples, generated_source, mapped_span
+from pathlib import Path
+from check_readme import apply_fixes, consumer_manifest, examples, generated_source, mapped_span
 
 
 class ReadmeTests(unittest.TestCase):
@@ -40,6 +41,22 @@ class ReadmeTests(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             apply_fixes(markdown, [diagnostic], blocks)
+
+    def test_kit_consumer_uses_only_the_kit_adapter(self):
+        manifest = consumer_manifest(Path('/checkout/kit'), [], package='gpui-motion-kit')
+
+        self.assertIn('gpui-motion-kit = { path = "/checkout/kit" }', manifest)
+        self.assertIn('gpui-kit = { version = "=0.7.3"', manifest)
+        self.assertNotIn('gpui-ce-motion =', manifest)
+        self.assertNotIn('package = "gpui-ce"', manifest)
+        self.assertNotIn('features = ["gpui"]', manifest)
+
+    def test_ce_consumer_keeps_its_native_backend(self):
+        manifest = consumer_manifest(Path('/checkout/ce'), [])
+
+        self.assertIn('gpui-ce-motion = { path = "/checkout/ce", features = ["gpui"] }', manifest)
+        self.assertIn('package = "gpui-ce"', manifest)
+        self.assertNotIn('gpui-motion-kit =', manifest)
 
     def test_unclosed_or_unverified_examples_fail(self):
         for markdown in ['```rust\nlet value = 1;\n', '```rust,ignore\nlet value = 1;\n```\n', '```rust,compile_fail\ninvalid\n```\n']:

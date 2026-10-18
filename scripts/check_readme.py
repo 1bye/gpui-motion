@@ -123,7 +123,7 @@ def apply_fixes(markdown, diagnostics, blocks):
     return output.decode()
 
 
-def consumer_manifest(project, libraries):
+def consumer_manifest(project, libraries, package="gpui-ce-motion"):
     manifest = '''[package]
 name = "gpui-motion-readme"
 version = "0.0.0"
@@ -137,6 +137,12 @@ gpui = { package = "gpui-ce", version = "=0.2.2", default-features = false }
 [workspace.metadata.dylint]
 libraries = LIBRARIES
 '''
+    if package == "gpui-motion-kit":
+        manifest = manifest.replace(
+            'gpui-ce-motion = { path = PROJECT, features = ["gpui"] }\ngpui = { package = "gpui-ce", version = "=0.2.2", default-features = false }',
+            'gpui-motion-kit = { path = PROJECT }\ngpui-kit = { version = "=0.7.3", default-features = false, features = ["component", "assets"] }',
+        )
+
     entries = []
 
     for library in libraries:
@@ -155,7 +161,9 @@ def check(project, readme, fix=False, library=None):
         ['cargo', 'metadata', '--no-deps', '--format-version=1', '--locked', '--manifest-path', str(project / 'Cargo.toml')],
         capture_output=True, text=True, check=True,
     )
-    libraries = json.loads(metadata.stdout)['metadata']['dylint']['libraries']
+    metadata = json.loads(metadata.stdout)
+    libraries = metadata['metadata']['dylint']['libraries']
+    package = metadata['packages'][0]['name']
     environment = dict(os.environ)
     environment.setdefault('CARGO_TARGET_DIR', str(project / 'target'))
     environment['CARGO_INCREMENTAL'] = '0'
@@ -163,7 +171,7 @@ def check(project, readme, fix=False, library=None):
     with tempfile.TemporaryDirectory(prefix='gpui-motion-readme-') as directory:
         consumer = Path(directory)
         (consumer / 'src').mkdir()
-        (consumer / 'Cargo.toml').write_text(consumer_manifest(project, libraries))
+        (consumer / 'Cargo.toml').write_text(consumer_manifest(project, libraries, package))
         (consumer / 'Cargo.lock').write_bytes((project / 'Cargo.lock').read_bytes())
 
         for attempt in range(6 if fix else 1):
