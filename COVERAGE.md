@@ -118,3 +118,20 @@ i64 endpoints, changed-digit rolling/fading/sliding, and rounded numeric samplin
 See [text contracts](docs/TEXT.md) for the two-second spring scrub horizon, numeric
 precision, native composition costs and typography/accessibility limits. General
 transforms, outline morphs, editable text, rich spans and font axes remain excluded.
+
+## GPUI Kit native helpers (unreleased)
+
+Kit 0.7.3's default `gpui-pre` backend has native bindings for motion/presence,
+styles, gestures/drag/in-view, measured scroll mapping, position layout,
+intrinsic sizing, reorder, popped exits, shared position/crossfade, vectors,
+prepared clips/timelines, SVG drawing transforms, text and numbers. Bindings use
+the same published portable engine; no CE native feature or renderer fork is
+needed. Shared geometry/input regression fixtures run against both adapters.
+
+Kit does not expose CE's public element/backdrop filter API. `StyleFrame::try_apply`
+returns `UnsupportedStyle` for those tracks; `apply` panics rather than dropping
+them. Outer shadow blur is supported. General subtree transforms, size projection,
+OS-wide pointer capture, multi-touch, autoscroll, cross-parent shared coordinates,
+and the existing text typography/accessibility limits remain unchanged. Kit
+native types cannot mix with CE native types. See the
+[Kit API examples](integrations/gpui-kit/README.md).

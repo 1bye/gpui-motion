@@ -201,3 +201,24 @@ and compile-fail examples are rejected rather than silently skipped.
 python3 -m unittest discover -s scripts -p test_readme.py -v
 python3 scripts/test_readme_integration.py -v
 ```
+
+## Kit helper gallery and performance checks
+
+The unreleased Kit helper expansion uses stock `gpui-kit =0.7.3` and the published
+portable engine. Its public API examples live in the
+[Kit README](../integrations/gpui-kit/README.md), with a path-dependency setup.
+
+```sh
+cargo run --manifest-path integrations/gpui-kit/Cargo.toml --features demo --example helpers
+cargo test --manifest-path integrations/gpui-kit/Cargo.toml --features demo,native-tests --example helpers
+cargo test --manifest-path integrations/gpui-kit/Cargo.toml --features demo,native-tests --test helpers_native --test playback_native
+cargo bench --manifest-path integrations/gpui-kit/Cargo.toml --features demo,native-tests --bench helpers_native
+```
+
+`tests/common/advanced_fixture.rs` runs the same layout, hitbox, cancellation,
+scroll-resize, clipped visibility and reordering contracts against CE and Kit.
+Kit-specific tests cover native style conversion, unsupported filters, playback
+clocks/controls, future timeline scheduling, SVG conversion and idle frames.
+The helper gallery tests use real Kit controls, including observed drag/reorder
+children. TestPlatform and the benchmark substitute fonts, display and GPU;
+keep CPU preparation measurements separate from real presentation profiling.

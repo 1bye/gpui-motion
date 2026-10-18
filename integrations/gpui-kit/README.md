@@ -7,8 +7,16 @@ connects the shared `gpui-ce-motion` engine to Kit's elements, executor clock,
 frame scheduling, and reduced-motion preference. No JavaScript or renderer fork.
 
 [Crates.io](https://crates.io/crates/gpui-motion-kit) ·
-[API reference](https://docs.rs/gpui-motion-kit/latest/gpui_motion_kit/) ·
+[Published API reference](https://docs.rs/gpui-motion-kit/latest/gpui_motion_kit/) ·
 [Product examples](#product-examples) · [Text gallery](#text-gallery)
+
+**Development note:** the native-helper expansion below is unreleased. Published
+`0.2.0` has transitions/presence, scalar values, position layout, vectors and text.
+To use the added helpers now, replace the registry dependency with a checkout:
+
+```toml
+gpui-motion-kit = { path = "../gpui-motion/integrations/gpui-kit" }
+```
 
 ## Install
 
@@ -241,13 +249,336 @@ fn progress(
 Initialize the retained state once with `ValueState::new(0.0)`. Avoid giving the
 same property a second interpolator inside a Kit component.
 
-`VectorState` supplies native compatible-path morphing and stroke reveal; the
+`VectorState` supplies compatible-path morphing and stroke reveal. The
 [automation example](https://github.com/1bye/gpui-motion/blob/main/integrations/gpui-kit/examples/showcase/automation.rs)
-shows it in a complete flow. Other portable APIs are available through `core`,
-but CE-specific native helpers such as `GestureState`, `ScrollMotion`, `AutoSize`,
-and `SharedLayout` do not yet have Kit bindings. Drag/drop in the planner uses
-Kit input plus the shared motion engine. General subtree transforms remain out
-of scope on the stock renderer.
+shows it in a complete flow. The native helpers below reuse the same published
+portable engine; their rendering and input types are Kit-native.
+
+## Style transitions
+
+`StyleMotionState` applies colors, per-corner radii, border widths, padding,
+margins, gaps and a single outer shadow. Undeclared properties preserve existing
+styles; previously introduced tracks retain their destinations. Styles that change
+layout perform real layout. Keep the sampler on the owning view.
+
+```rust
+use gpui_kit::{App, IntoElement, Window, div, prelude::*};
+use gpui_motion_kit::{StyleMotionState, core::{Color, ColorProperty, StyleMotion, StyleTarget}};
+
+fn styled_panel(state: &mut StyleMotionState, expanded: bool, window: &mut Window, cx: &App) -> impl IntoElement {
+    let padding = if expanded { 24.0 } else { 12.0 };
+
+    let target = StyleTarget::default()
+        .padding([padding; 4])
+        .radii([16.0; 4])
+        .color(ColorProperty::Background, Color::rgb(0x4338ca))
+        .shadow([0.0, 8.0], 20.0, 0.0, Color::rgba(0.0, 0.0, 0.0, 0.2));
+
+    let frame = state.frame(StyleMotion::new(target), window, cx);
+
+    frame.apply(div().child("Settings"))
+}
+```
+
+Stock Kit 0.7.3 has no public element blur/backdrop-filter API. A portable target
+containing `StyleProperty::Blur` or `BackdropBlur` is therefore unsupported.
+`frame.try_apply(element)` returns `UnsupportedStyle` (with `property()`);
+`apply` panics for those declarations, including radius zero. No filter is silently
+ignored. Shadow blur is supported. `color_to_rgba` converts a sampled engine color
+to Kit's native color when you paint your own element.
+
+## Hover, press, focus and drag
+
+Retain one `GestureState` per logical control. Configure its drag bounds and
+optional visibility policy once, then bind its current targets during render.
+Native input resolves interaction flags automatically. Arrow keys move a focused
+drag target; Escape, deactivation, blur and a lost mouse button cancel the grab.
+
+```rust
+use gpui_kit::{Role, div, prelude::*, px};
+use gpui_motion_kit::{GestureElement, GestureState, core::{Drag, GestureTargets, Motion, Target}};
+
+fn drag_state() -> GestureState {
+    GestureState::default()
+        .with_drag(Drag::new([0.0, 0.0], [0.0, 0.0], [240.0, 0.0]).snap_grid(20.0))
+        .in_view(0.5, false)
+}
+
+fn draggable(state: &GestureState) -> GestureElement {
+    let card = div()
+        .id("drag-card")
+        .role(Role::Button)
+        .aria_label("Drag card; use arrow keys to move")
+        .w(px(100.0))
+        .h(px(64.0))
+        .child("Drag me");
+
+    let targets = GestureTargets::default()
+        .while_hover(Target::default().opacity(0.85))
+        .while_press(Target::default().opacity(0.65))
+        .while_focus(Target::default().y(-2.0));
+
+    state.bind("drag-motion", card, Motion::new(Target::default()), targets)
+}
+```
+
+`interaction()`, `presented()`, and `focus_handle()` expose current state.
+`.in_view(amount, once)` observes the clipped ancestor viewport; use a
+`while_in_view` target to animate it. `.enabled(false)` disables input/tab stops
+and cancels a grab on the next render; the owner restores focus and supplies its
+disabled semantics. `cancel(cx)` cancels explicitly.
+
+The child is a styled stateful native element, including Kit's observed elements
+from `.test_support()`. Attach control semantics and activation to that child;
+this wrapper does not replace a Kit Button's own internal interaction system.
+Use a dedicated drag surface rather than competing with nested editors/buttons
+for pointer and focus ownership.
+Mouse and keyboard are supported. Multi-touch, OS-wide capture and autoscroll
+remain application/platform work.
+
+## Scroll-driven animation
+
+Retain a Kit `ScrollHandle` and attach it to the real scroll container.
+`ScrollMotion` reads its measured extent/offset, refreshes after resize, and maps
+progress to a numeric target. Mapping is instant unless you choose smoothing.
+
+```rust
+use gpui_kit::{IntoElement, ScrollHandle, div, prelude::*, px};
+use gpui_motion_kit::{Axis, ScrollMotion, core::{Target, Transition}};
+
+fn scrolled_panel(scroll: &ScrollHandle) -> impl IntoElement {
+    let indicator = ScrollMotion::new(
+        "scroll-progress",
+        scroll.clone(),
+        Axis::Y,
+        Target::default().width(0.0),
+        Target::default().width(300.0),
+        div().h(px(4.0)).bg(gpui_kit::rgb(0x4338ca)),
+    )
+    .transition(Transition::default());
+
+    div().flex().flex_col()
+        .child(indicator)
+        .child(div().id("scroll-area").h(px(200.0)).overflow_y_scroll().track_scroll(scroll)
+            .child(div().h(px(800.0)).child("Scrollable content")))
+}
+```
+
+`native_scroll_progress(&handle, Axis::Y)` is available for custom mappings.
+An unscrollable container reports zero. A dimension declared at only one endpoint
+is held at that numeric value; undeclared dimensions keep their element style.
+
+## Measured content sizing
+
+`AutoSize` measures a separate child layout root, reserves its animated size,
+and clips paint/input to the reservation. Keep its ID stable. Supply explicit
+available constraints; these do not force a child to have that width or height.
+
+```rust
+use gpui_kit::{IntoElement, div, prelude::*, px};
+use gpui_motion_kit::{AutoSize, SizeAxis};
+
+fn accordion(expanded: bool) -> impl IntoElement {
+    let content = div().w(px(300.0)).p_4()
+        .child("Details")
+        .when(expanded, |content| content.child("Additional content wraps naturally."));
+
+    AutoSize::new("accordion", content)
+        .width(300.0)
+        .axis(SizeAxis::Height)
+}
+```
+
+Width, height and both axes are supported. First measurement snaps by default;
+`.initial([width, height])` opts into entrance from a numeric size. Unanimated
+axes follow content immediately without keeping an animation loop alive.
+
+## Reordering and popped exits
+
+`ReorderGroup` owns a single-axis logical order and measured variable-size items.
+Keep the group and domain keys stable. Pointer movement reorders; Option+arrows
+on macOS (Alt+arrows elsewhere) moves the focused item. Escape/deactivation cancels.
+
+```rust
+use gpui_kit::{IntoElement, div, prelude::*};
+use gpui_motion_kit::{Axis, ReorderGroup};
+
+fn tasks(group: &ReorderGroup<usize>) -> impl IntoElement {
+    let order = group.order().to_vec();
+
+    div().flex().flex_col().children(order.into_iter().map(|key| {
+        let row = div().id(("task", key)).p_4().child(format!("Task {key}"));
+
+        group.item(("task-motion", key), key, row)
+    }))
+}
+
+let group = ReorderGroup::new(vec![1, 2, 3], Axis::Y).expect("unique task keys");
+```
+
+`on_change` reports pointer commit/keyboard changes without borrowing group state.
+Capture application entities weakly. `set_order` updates membership transactionally
+and cancels a grab; call it on model changes, not every render. The owner handles
+persistence, focus after removal, and autoscroll. Multi-column sorting is not implied.
+
+`PopLayout` lets an outgoing item leave normal flow immediately while retaining
+its last visible parent-relative bounds. It also animates sibling reflow:
+
+```rust
+use gpui_kit::{IntoElement, div, prelude::*};
+use gpui_motion_kit::PopLayout;
+
+fn notifications(pop: &PopLayout, first_present: bool) -> impl IntoElement {
+    let rows = div().flex().flex_col().gap_2()
+        .child(pop.item("first", first_present, div().child("Retained first row")))
+        .child(pop.item("second", true, div().child("Second row")));
+
+    pop.container("notifications", rows)
+}
+```
+
+Pair it with `Motion::present`/`Frame::render` and, for keyed membership,
+`core::PresenceGroup` to retain exiting content until its fade completes. Guard
+outgoing input and restore focus. Do not add `LayoutGroup` to the same popped
+item; both would own its position. An inner child can animate its own exit offsets.
+
+## Shared position and crossfade
+
+`SharedLayout` coordinates one active appearance per key in a common overlay.
+Retain outgoing appearances during their normal exits. Sizes change immediately;
+this is position/crossfade, not size projection or cross-parent coordinate discovery.
+
+```rust
+use gpui_kit::{IntoElement, div, prelude::*, px};
+use gpui_motion_kit::SharedLayout;
+
+fn selection(shared: &SharedLayout<usize>, expanded: bool) -> impl IntoElement {
+    let old = div().absolute().left(px(0.0)).w(px(100.0)).h(px(60.0));
+    let new = div().absolute().left(px(240.0)).w(px(180.0)).h(px(100.0));
+
+    div().relative().h(px(220.0))
+        .child(shared.member(1, "old-selection", !expanded, old))
+        .child(shared.member(1, "new-selection", expanded, new))
+}
+```
+
+The owner suppresses outgoing input and duplicate semantics. Call `remove(&key)`
+when an identity is finished; `len`/`is_empty` expose retained membership.
+
+## Prepared playback and timelines
+
+Keep clips and native players in the view. `AnimationState::frame` returns a
+Kit-ready `Frame`; `Timeline::frame` returns a retained slice indexed by each
+track's insertion result. Track setup allocates; sampling reuses the frame buffer.
+
+```rust
+use gpui_kit::{App, IntoElement, Window, div, prelude::*};
+use gpui_motion_kit::{AnimationState, core::{Animation, Easing, Target}};
+use std::time::Duration;
+
+fn make_clip() -> Animation {
+    Animation::to(Target::default().x(200.0), Duration::from_millis(400), Easing::EaseOut)
+}
+
+fn animated_card(player: &mut AnimationState, clip: &Animation, window: &mut Window, cx: &App) -> impl IntoElement {
+    let frame = player.frame(clip, window, cx);
+
+    frame.apply(div().child("Prepared animation"))
+}
+```
+
+Playback controls use the **same Kit executor epoch**, not `Instant::now()`:
+
+```rust
+use gpui_kit::App;
+use gpui_motion_kit::AnimationState;
+use std::time::Duration;
+
+fn scrub(player: &mut AnimationState, cx: &App) {
+    let now = player.now(cx);
+
+    player.pause(now);
+    player.seek(Duration::from_millis(200), now);
+    player.set_speed(0.5, now).expect("finite speed");
+    player.play(now);
+}
+```
+
+Players also support `stop`, `restart`, `finish`, `iteration`, and `is_playing`.
+`Timeline` supports pause/play, restart, seek, and speed including negative rates:
+
+```rust
+use gpui_kit::{App, IntoElement, Window, div, prelude::*};
+use gpui_motion_kit::{Timeline, core::{Animation, Easing, Target}};
+use std::time::Duration;
+
+fn make_timeline() -> Timeline {
+    let slide = Animation::to(Target::default().x(120.0), Duration::from_millis(300), Easing::EaseOut);
+
+    let mut timeline = Timeline::default();
+
+    timeline.at(Duration::ZERO, slide.clone());
+    timeline.label("after-first").expect("unique label");
+    timeline.then(slide).expect("finite predecessor");
+
+    timeline
+}
+
+fn sequence(timeline: &mut Timeline, window: &mut Window, cx: &App) -> impl IntoElement {
+    let frames = timeline.frame(window, cx);
+
+    div().flex().flex_col().children(frames.iter().copied().enumerate().map(|(id, frame)| {
+        frame.apply(div().id(("track", id)).child(format!("Track {id}")))
+    }))
+}
+```
+
+`at_label` adds overlapping tracks at a named cursor plus an offset. Future tracks
+still schedule frames even before their first movement. Paused/settled/reduced-motion
+players stop requesting frames, including forever clips. As with portable playback,
+a loop can deliberately jump at its boundary. Do not mix explicit `sample` epochs
+with native `frame`/`now` calls on one retained owner.
+
+## SVG drawing transforms
+
+Kit supports SVG-specific signed scale, rotation and translation. Retain a
+`SvgMotionState`; the shared engine preserves unwrapped angles and interruption
+momentum. Only the SVG drawing transforms, not its layout, hitbox, clipping, text
+or children. Provide a fixed padded parent for interaction.
+
+```rust
+use gpui_kit::{App, IntoElement, Window, div, prelude::*, px, svg};
+use gpui_motion_kit::{SvgMotionState, core::{SvgMotion, SvgTarget}};
+
+fn icon(state: &mut SvgMotionState, expanded: bool, window: &mut Window, cx: &App) -> impl IntoElement {
+    let target = SvgTarget::default()
+        .scale(if expanded { 1.4 } else { 1.0 })
+        .rotate_degrees(if expanded { 90.0 } else { 0.0 });
+
+    let frame = state.frame(SvgMotion::new(target), window, cx);
+
+    div().p_8().child(frame.apply(svg().path("icons/arrow-right.svg").size(px(32.0))))
+}
+```
+
+`transformation()` produces a Kit native center-origin transform;
+`transformation_about(bounds_size, pivot)` compensates for a custom pixel pivot.
+These replace the drawing's existing transform. `Frame`, `StyleFrame`, and
+`SvgFrame` accept their portable core frames through `From` for custom clocks.
+General subtree transforms and full layout projection remain renderer limitations.
+
+## Helper gallery
+
+```sh
+cargo run --manifest-path integrations/gpui-kit/Cargo.toml --features demo --example helpers
+```
+
+Eight scenes exercise native styles, bounded drag, manual scrolling/in-view,
+measured content sizing, popped exits/reorder, shared positions, clip/timeline
+controls, and SVG transforms. Use Change state during travel, pause/seek/replay,
+drag variable-size rows, and enable reduced motion. Option/Alt+arrows reorder a
+focused row. The gallery uses actual Kit controls; its production interaction
+tests dispatch native pointer/keyboard/scroll input.
 
 ## Product examples
 
@@ -285,6 +616,7 @@ was validated on macOS; Linux/Windows runs and screen-reader behavior are unveri
 cargo fmt --manifest-path integrations/gpui-kit/Cargo.toml --all --check
 cargo test --manifest-path integrations/gpui-kit/Cargo.toml --locked --features demo,native-tests
 cargo test --manifest-path integrations/gpui-kit/Cargo.toml --locked --features demo,native-tests --example showcase
+cargo test --manifest-path integrations/gpui-kit/Cargo.toml --locked --features demo,native-tests --example helpers
 cargo clippy --manifest-path integrations/gpui-kit/Cargo.toml --locked --all-targets --features demo,native-tests -- -D warnings
 python3 scripts/check_spacing.py --project integrations/gpui-kit
 ```
@@ -301,6 +633,22 @@ pointer/keyboard input. TestPlatform substitutes the display/GPU, so those tests
 verify behavior and geometry rather than GPU presentation.
 
 ## Performance
+
+The helper benchmark compares 100 direct elements with styles, scroll bindings,
+clip/timeline playback, gestures, sizing, popped exits, reorder, shared positions,
+vectors, and direct/animated SVG drawing. It uses five fresh contexts, 24 warmup
+and 240 measured frames per batch, retargeting every 24 frames:
+
+```sh
+cargo bench --manifest-path integrations/gpui-kit/Cargo.toml --features demo,native-tests --bench helpers_native
+```
+
+These are CPU construction/layout/prepaint/paint-preparation timings on
+TestPlatform with synthetic fonts/display/GPU. They do not measure GPU execution,
+OS input latency, frame presentation or energy. Direct and animated SVG cases
+use identical fixed SVG data and caching; the comparison includes normal builder
+costs. See [helper measurements](https://github.com/1bye/gpui-motion/blob/main/PERFORMANCE.md#kit-native-helpers--2026-10-18).
+
 
 ```sh
 cargo bench --manifest-path integrations/gpui-kit/Cargo.toml --features demo,native-tests --bench kit_layout

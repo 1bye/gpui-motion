@@ -27,8 +27,47 @@ use std::{
 /// The portable motion engine, available without enabling GPUI CE.
 pub use gpui_ce_motion as core;
 
+mod gesture_native;
 mod layout;
+mod measured_size;
+mod playback;
+mod pop_layout;
+mod reorder_native;
+mod scroll_native;
+mod shared_layout;
+mod style;
+mod svg;
 mod vector;
+
+pub use gesture_native::{GestureElement, GestureState};
+pub use measured_size::{AutoSize, SizeAxis};
+pub use playback::{AnimationState, Timeline};
+pub use pop_layout::{PopElement, PopLayout, PopRequest};
+pub use reorder_native::{ReorderElement, ReorderGroup};
+pub use scroll_native::{Axis, ScrollMotion, native_scroll_progress};
+pub use shared_layout::{SharedElement, SharedLayout};
+pub use style::{StyleFrame, StyleMotionState, UnsupportedStyle, color_to_rgba};
+pub use svg::{SvgFrame, SvgMotionState};
+
+#[derive(Debug, Default)]
+struct Clock(Option<Instant>);
+
+impl Clock {
+    fn tick(&mut self, cx: &App) -> Duration {
+        let now = cx.background_executor().now();
+        let epoch = *self.0.get_or_insert(now);
+
+        now.saturating_duration_since(epoch)
+    }
+
+    fn now(&self, cx: &App) -> Duration {
+        self.0.map_or(Duration::ZERO, |epoch| {
+            cx.background_executor()
+                .now()
+                .saturating_duration_since(epoch)
+        })
+    }
+}
 
 pub use vector::{VectorElement, VectorState};
 
@@ -72,6 +111,12 @@ impl MotionState {
 #[derive(Clone, Copy, Debug)]
 pub struct Frame(gpui_ce_motion::Frame);
 
+impl From<gpui_ce_motion::Frame> for Frame {
+    fn from(frame: gpui_ce_motion::Frame) -> Self {
+        Self(frame)
+    }
+}
+
 impl Deref for Frame {
     type Target = gpui_ce_motion::Frame;
 
@@ -81,6 +126,11 @@ impl Deref for Frame {
 }
 
 impl Frame {
+    /// Creates a static Kit-ready frame, for custom mappings and portable sampling.
+    pub fn at(target: gpui_ce_motion::Target) -> Self {
+        gpui_ce_motion::Frame::at(target).into()
+    }
+
     /// Applies opacity, relative position, and declared dimensions/radius.
     /// Dimensions perform real layout. This sets relative position, left, and top;
     /// use an outer reservation when absolute placement is required.

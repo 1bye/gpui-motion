@@ -71,3 +71,20 @@ required-features = ["native-tests"]
 name = "text_native"
 harness = false
 required-features = ["native-tests"]
+
+[[test]]
+name = "helpers_native"
+required-features = ["native-tests"]
+
+[[test]]
+name = "playback_native"
+required-features = ["native-tests"]
+
+[[bench]]
+name = "helpers_native"
+harness = false
+required-features = ["native-tests"]
+
+[[example]]
+name = "helpers"
+required-features = ["demo"]

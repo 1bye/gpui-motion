@@ -1232,9 +1232,11 @@ use a different integration.
 
 The [Kit README](integrations/gpui-kit/README.md) includes a complete runnable
 button/panel application and examples for enter/exit, animated text and numbers,
-position-only layout, and scalar values. Its API reference is available on
-[docs.rs](https://docs.rs/gpui-motion-kit/latest/gpui_motion_kit/). It also documents
-which CE-specific helpers do not yet have Kit bindings.
+position-only layout, and scalar values. Its published API reference is available on
+[docs.rs](https://docs.rs/gpui-motion-kit/latest/gpui_motion_kit/). The unreleased checkout additionally provides native style, gesture/scroll,
+measured sizing, reorder/popped-exit/shared-position, clip/timeline and SVG helpers.
+The Kit README documents every helper and the stock renderer's filter/transform
+limits; use its path-dependency setup until the next Kit release.
 
 The [Motion / Kit showcase](integrations/gpui-kit/README.md#product-examples) contains
 six interactive flows: inbox and undo, asset inspection, downloads, document
@@ -1243,6 +1245,7 @@ search, a draggable planner, and an automation runner. Run from this checkout:
 ```sh
 cargo run --manifest-path integrations/gpui-kit/Cargo.toml --features demo --example showcase
 cargo run --manifest-path integrations/gpui-kit/Cargo.toml --features demo --example text_motion
+cargo run --manifest-path integrations/gpui-kit/Cargo.toml --features demo --example helpers
 ```
 
 ## Explore and contribute

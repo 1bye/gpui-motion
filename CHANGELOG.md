@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased — GPUI Kit helpers
+
+- Add Kit-native style application, hover/press/focus/drag/in-view bindings,
+  measured scroll mapping, intrinsic sizing, reorder, popped exits and shared
+  position/crossfade over the existing published engine.
+- Add Kit-native prepared clip/timeline clocks and SVG transform adapters, with
+  smooth interruption, explicit playback epochs and reduced-motion scheduling.
+- Accept styled stateful Kit elements, including observed elements, in input/reorder
+  wrappers. Report unsupported element/backdrop blur explicitly on stock Kit.
+- Add an eight-scene helper gallery, native-control tests, shared CE/Kit geometry
+  regression fixtures, CPU preparation benchmarks and executable README examples.
+
+
 ## gpui-motion-kit 0.2.0
 
 - Publish the Kit-native adapter as a separate crates.io package over the shared

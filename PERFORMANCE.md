@@ -699,3 +699,77 @@ native previews, with additional Kit word/wipe checks and rolling counters on bo
 backends. This is a demo font workaround; the library still inherits the host's
 font. The checks establish the observed glyph outlines at the tested display scale,
 not a fix to GPUI's system-font renderer or a new performance measurement.
+
+## Kit native helpers — 2026-10-18
+
+Stock `gpui-kit =0.7.3` / `gpui-pre =0.3.9`, shared published
+`gpui-ce-motion 0.2.0`, macOS ARM64, Rust 1.95.0, release profile. No renderer
+fork or runtime dependency was added. Run:
+
+```sh
+cargo bench --manifest-path integrations/gpui-kit/Cargo.toml --features demo,native-tests --bench helpers_native
+```
+
+Each mode creates five fresh TestPlatform contexts with 100 elements. Each batch
+has 24 warmup and 240 measured frames, advancing the executor by 8,333 microseconds
+per frame. Destinations/layout heights alternate every 24 frames; reorder also
+reverses membership order. Prepared players and the staggered timeline share an
+immutable repeating clip. Setup/state allocation is outside timing. Measured work
+includes element construction, sampling, native layout, prepaint/hitboxes,
+listener registration, painting preparation and frame cleanup.
+
+Styles sample the explicit board epoch and animate corners, border widths and
+background color; popped exits also use that epoch. Clip/timeline/SVG modes use
+the native clock helpers. The gallery additionally exercises padding and shadows;
+these timings do not characterize every style combination. Scroll includes a real
+measured source viewport and 100 smoothed bindings. Both SVG modes construct the
+same immutable inline drawing, including its normal hash/data-builder cost, and
+reuse Kit's path cache. Animated SVG adds only sampled scale/rotation.
+
+Two complete consecutive runs after compilation finished:
+
+| Workload | First mean, ms/frame | Repeat mean, ms/frame | Repeat frame P95, ms |
+| --- | ---: | ---: | ---: |
+| Direct reflow | 0.359 | 0.314 | 0.370 |
+| Native style tracks | 0.519 | 0.465 | 0.537 |
+| Measured scroll with smoothing | 0.557 | 0.545 | 0.627 |
+| Prepared clip playback | 0.669 | 0.370 | 0.408 |
+| Staggered timeline | 0.361 | 0.359 | 0.396 |
+| Direct cached SVG | 0.249 | 0.246 | 0.263 |
+| SVG scale/rotation with interruption | 0.312 | 0.309 | 0.336 |
+| Gesture bindings and opacity | 0.970 | 0.996 | 1.279 |
+| Intrinsic height measurement | 0.516 | 0.514 | 0.555 |
+| Popped retained exits | 0.519 | 0.516 | 0.532 |
+| Measured reorder and handlers | 0.935 | 0.924 | 0.998 |
+| Shared position bindings | 0.473 | 0.489 | 0.579 |
+| Compatible path morph/reveal | 1.165 | 1.200 | 1.433 |
+
+Means are the median of five batch means; P95 combines the 1,200 measured frames.
+The first playback pass varied noticeably, so both runs are retained rather than
+presenting a single timing as a guarantee. These are shared-desktop CPU measurements
+with synthetic font/display/GPU services. They do not measure GPU completion,
+platform glyph rasterization, OS input latency, displayed frame cadence or energy.
+
+Seventeen shared native geometry/input contracts run against both CE and Kit,
+including interruption, clipped input, scroll resize/smoothing, viewport/once
+visibility, reordered hitboxes, cancellation and reentry. Eight additional Kit
+contracts cover styles/unsupported filters, clip and timeline controls/epochs,
+future-track scheduling, idle/reduced motion, frame-buffer reuse and SVG pivots.
+Six production-gallery tests dispatch native Kit controls, pointer drag, keyboard
+reorder and manual scrolling. Real-window validation is recorded separately below;
+headless tests alone do not establish GPU presentation or screen-reader behavior.
+
+### Live helper gallery acceptance
+
+The new gallery was launched as a native macOS app at 1020 × 760 logical points.
+The first screenshots showed the styled card correctly; Change state visibly
+changed its color, padding, corner radius, border width and shadow. The native
+accessibility tree exposed all eight tabs, reduced-motion control, the drag
+control and reorder row labels. Live tab changes were observed in that tree.
+
+Later captures returned distorted miniature images, then the desktop automation
+service reported macOS ScreenCaptureKit `SCStreamErrorDomain -3811` (capture
+stream failure). Reliable visual acceptance of the remaining scenes was therefore
+not completed. This is separate from the production gallery's six passing native
+input/layout tests. GPU/display cadence, real screen-reader announcements,
+Linux/Windows execution and alternate display scales remain unverified.

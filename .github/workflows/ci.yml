@@ -67,6 +67,7 @@ jobs:
       - run: cargo test --locked --features demo,native-tests
       - run: cargo test --locked --features demo,native-tests --example showcase
       - run: cargo test --locked --features demo,native-tests --example text_motion
+      - run: cargo test --locked --features demo,native-tests --example helpers
       - run: cargo clippy --locked --all-targets --features demo,native-tests -- -D warnings
       - run: cargo doc --locked --no-deps --features demo
         env:
@@ -77,3 +78,4 @@ jobs:
       - run: cargo publish --dry-run --locked
       - run: cargo check --locked --manifest-path target/package/gpui-motion-kit-0.2.0/Cargo.toml --target-dir target --features demo --examples
       - run: python3 ../../scripts/check_spacing.py --project .
+      - run: cargo bench --locked --features demo,native-tests --bench helpers_native

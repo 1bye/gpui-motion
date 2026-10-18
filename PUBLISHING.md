@@ -96,6 +96,8 @@ cargo fmt --manifest-path integrations/gpui-kit/Cargo.toml --all --check
 cargo test --manifest-path integrations/gpui-kit/Cargo.toml --locked --features demo,native-tests
 cargo test --manifest-path integrations/gpui-kit/Cargo.toml --locked --features demo,native-tests --example showcase
 cargo test --manifest-path integrations/gpui-kit/Cargo.toml --locked --features demo,native-tests --example text_motion
+cargo test --manifest-path integrations/gpui-kit/Cargo.toml --locked --features demo,native-tests --example helpers
+cargo bench --manifest-path integrations/gpui-kit/Cargo.toml --locked --features demo,native-tests --bench helpers_native
 cargo clippy --manifest-path integrations/gpui-kit/Cargo.toml --locked --all-targets --features demo,native-tests -- -D warnings
 RUSTDOCFLAGS="-D warnings" cargo doc --manifest-path integrations/gpui-kit/Cargo.toml --locked --no-deps
 python3 scripts/check_spacing.py --project integrations/gpui-kit
