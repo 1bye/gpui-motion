@@ -11,7 +11,7 @@ repository = "https://github.com/1bye/gpui-motion"
 documentation = "https://docs.rs/gpui-ce-motion"
 keywords = ["gpui", "animation", "spring", "native", "ui"]
 categories = ["gui", "graphics"]
-include = ["src/**", "examples/**", "PUBLISHING.md", "CHANGELOG.md", "tests/**", "benches/**", "README.md", "PERFORMANCE.md", "COVERAGE.md", "LICENSE-*", "Cargo.toml"]
+include = ["src/**", "docs/**", "examples/**", "PUBLISHING.md", "CHANGELOG.md", "tests/**", "benches/**", "README.md", "PERFORMANCE.md", "COVERAGE.md", "LICENSE-*", "Cargo.toml"]
 
 [lints.rust]
 missing_docs = "warn"
