@@ -16,6 +16,7 @@ impl Inertia {
             !time_constant.is_zero(),
             "inertia time constant must be positive"
         );
+
         Self {
             tau: time_constant.as_secs_f64(),
             bounds: None,
@@ -29,11 +30,13 @@ impl Inertia {
             "invalid inertia bounds"
         );
         self.bounds = Some((min, max));
+
         self
     }
     /// Chooses the spring used at a boundary.
     pub fn spring(mut self, spring: Spring) -> Self {
         self.spring = spring;
+
         self
     }
     /// Projects a resting position and clamps it to configured bounds.
@@ -43,6 +46,7 @@ impl Inertia {
             "non-finite projection"
         );
         let value = finite(position + velocity * self.tau);
+
         self.bounds
             .map_or(value, |(min, max)| value.clamp(min, max))
     }
@@ -110,6 +114,7 @@ impl MotionValue {
     /// Creates a resting value. Panics for non-finite input.
     pub fn new(value: f64) -> Self {
         assert!(value.is_finite(), "motion value must be finite");
+
         Self {
             value,
             velocity: 0.0,
@@ -142,6 +147,7 @@ impl MotionValue {
         assert!(value.is_finite(), "motion value must be finite");
         let now = now.max(self.last);
         let dt = now.saturating_sub(self.set_time).as_secs_f64();
+
         self.velocity = if dt > 0.0 {
             finite((value - self.value) / dt)
         } else {
@@ -175,6 +181,7 @@ impl MotionValue {
     ) {
         assert!(target.is_finite(), "motion target must be finite");
         let now = now.max(self.last);
+
         if self.mode == Mode::Transition
             && self.target == target
             && self.transition == transition
@@ -182,6 +189,7 @@ impl MotionValue {
         {
             return;
         }
+
         self.advance(now);
         self.from = self.value;
         self.initial_velocity = self.velocity;
@@ -197,6 +205,7 @@ impl MotionValue {
     /// Bounds switch to a spring at the exact crossing time, independent of frame rate.
     pub fn coast(&mut self, inertia: Inertia, now: Duration) {
         let now = now.max(self.last);
+
         self.advance(now);
         self.from = self.value;
         self.initial_velocity = self.velocity;
@@ -214,8 +223,10 @@ impl MotionValue {
         } else {
             self.advance(now.max(self.last));
         }
+
         self.last = self.last.max(now);
         let completed = std::mem::take(&mut self.completed);
+
         ValueFrame {
             value: self.value,
             velocity: self.velocity,
@@ -231,15 +242,21 @@ impl MotionValue {
     }
     fn advance(&mut self, now: Duration) {
         self.last = now;
+
         if !self.active {
             return;
         }
+
         let elapsed = now.saturating_sub(self.started);
+
         if elapsed < self.delay {
             self.velocity = 0.0;
+
             return;
         }
+
         let t = elapsed.saturating_sub(self.delay).as_secs_f64();
+
         let (value, velocity, done) = match self.mode {
             Mode::Transition => sample_transition(
                 self.from,
@@ -251,6 +268,7 @@ impl MotionValue {
             Mode::Inertia(config) => {
                 let amplitude = finite(self.initial_velocity * config.tau);
                 let end = finite(self.from + amplitude);
+
                 let boundary = config.bounds.and_then(|(min, max)| {
                     if self.from < min {
                         Some((min, 0.0))
@@ -259,16 +277,19 @@ impl MotionValue {
                     } else if end < min || end > max {
                         let bound = if end < min { min } else { max };
                         let crossing = -config.tau * (1.0 - (bound - self.from) / amplitude).ln();
+
                         Some((bound, crossing.max(0.0)))
                     } else {
                         None
                     }
                 });
+
                 if let Some((bound, crossing)) = boundary
                     && t >= crossing
                 {
                     let from = if crossing == 0.0 { self.from } else { bound };
                     let velocity = self.initial_velocity * (-crossing / config.tau).exp();
+
                     sample_transition(
                         from,
                         velocity,
@@ -280,6 +301,7 @@ impl MotionValue {
                     let decay = (-t / config.tau).exp();
                     let value = finite(self.from + amplitude * (1.0 - decay));
                     let velocity = finite(self.initial_velocity * decay);
+
                     (
                         value,
                         velocity,
@@ -288,9 +310,11 @@ impl MotionValue {
                 }
             }
         };
+
         self.value = value;
         self.velocity = velocity;
         self.set_time = now;
+
         if done {
             self.finish();
         }
@@ -308,10 +332,13 @@ pub(crate) fn sample_transition(
         Transition::Instant => (target, 0.0, true),
         Transition::Tween(duration, easing) => {
             let seconds = duration.as_secs_f64();
+
             if t >= seconds {
                 return (target, 0.0, true);
             }
+
             let (progress, derivative) = easing.sample(t / seconds);
+
             (
                 if t == 0.0 {
                     from
@@ -326,10 +353,12 @@ pub(crate) fn sample_transition(
             if t == 0.0 {
                 return (from, velocity, false);
             }
+
             let m = spring.matrix(t);
             let displacement = finite(from - target);
             let value = finite(target + m[0] * displacement + m[1] * velocity);
             let velocity = finite(m[2] * displacement + m[3] * velocity);
+
             (
                 value,
                 velocity,

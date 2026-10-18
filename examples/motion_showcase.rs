@@ -51,6 +51,7 @@ fn ms(n: u64) -> Duration {
 }
 fn button(id: impl Into<gpui::ElementId>, text: impl Into<gpui::SharedString>) -> Stateful<Div> {
     let text = text.into();
+
     div()
         .id(id)
         .role(Role::Button)
@@ -77,6 +78,7 @@ fn surface() -> Div {
 }
 fn curve(high: bool) -> PathShape {
     let amplitude = if high { -70. } else { 60. };
+
     PathShape::new([
         PathCommand::Move([10., 100.]),
         PathCommand::Cubic(
@@ -95,6 +97,7 @@ fn curve(high: bool) -> PathShape {
 fn tour_position(seconds: f64) -> (usize, bool) {
     let seconds = seconds.clamp(0., TOUR_SECONDS);
     let phase = seconds % 6.;
+
     (
         (seconds as usize / 6).min(EXPERIMENTS - 1),
         (1.0..2.0).contains(&phase) || (2.3..4.5).contains(&phase),
@@ -133,10 +136,13 @@ struct Studio {
 impl Studio {
     fn new(w: &mut Window, cx: &mut Context<Self>) -> Self {
         let focus = cx.focus_handle();
+
         focus.focus(w, cx);
         let mut clock = Playback::default();
+
         clock.pause(Duration::ZERO);
         let shapes = [curve(false), curve(true)];
+
         Self {
             focus,
             epoch: Instant::now(),
@@ -178,6 +184,7 @@ impl Studio {
                 .unwrap()
                 .on_change({
                     let owner = cx.entity().downgrade();
+
                     move |_, _, cx| {
                         let _ = owner.update(cx, |s, cx| {
                             s.touring = false;
@@ -194,9 +201,11 @@ impl Studio {
     fn select(&mut self, scene: usize, w: &mut Window, cx: &mut Context<Self>) {
         self.drag.cancel(cx);
         self.scene = scene;
+
         if scene == 5 {
             self.playback.restart(self.playback.now());
         }
+
         self.alternate = false;
         self.touring = false;
         self.exploring = false;
@@ -210,6 +219,7 @@ impl Studio {
     }
     fn play(&mut self, cx: &mut Context<Self>) {
         let now = self.epoch.elapsed();
+
         if self.scene == 4 {
             if !self.exploring {
                 self.explore(cx);
@@ -220,17 +230,22 @@ impl Studio {
                 self.touring = true;
                 cx.notify();
             }
+
             return;
         }
+
         self.touring = !self.touring;
+
         if self.touring {
             if self.clock.time(now).as_secs_f64() >= TOUR_SECONDS {
                 self.clock.seek(Duration::ZERO, now);
             }
+
             self.clock.play(now);
         } else {
             self.clock.pause(now);
         }
+
         cx.notify();
     }
     fn explore(&mut self, cx: &mut Context<Self>) {
@@ -244,6 +259,7 @@ impl Studio {
         self.explore(cx);
         let y = (f32::from(self.scroll.offset().y) + delta)
             .clamp(-f32::from(self.scroll.max_offset().y).max(0.), 0.);
+
         self.scroll.set_offset(gpui::point(px(0.), px(y)));
     }
     fn select_tab(&mut self, key: usize, cx: &mut Context<Self>) {
@@ -254,6 +270,7 @@ impl Studio {
     }
     fn stage(&mut self, w: &mut Window, cx: &mut Context<Self>) -> gpui::AnyElement {
         let on = self.alternate;
+
         match self.scene {
             0 => {
                 let icon = self.icon.frame(
@@ -266,7 +283,9 @@ impl Studio {
                     w,
                     cx,
                 );
+
                 let mut bars = div().flex().items_end().gap_3().h(px(170.));
+
                 for i in 0..5 {
                     let frame = self.bars[i].frame(
                         Motion::new(
@@ -284,9 +303,11 @@ impl Studio {
                         w,
                         cx,
                     );
+
                     bars =
                         bars.child(frame.apply(div().bg(rgb(if i == 1 { ACCENT } else { LINE }))));
                 }
+
                 div()
                     .flex()
                     .items_center()
@@ -331,6 +352,7 @@ impl Studio {
                     w,
                     cx,
                 );
+
                 let content = div()
                     .w(px(372.))
                     .flex()
@@ -347,6 +369,7 @@ impl Studio {
                                 .child("Space for the details that matter."),
                         )
                     });
+
                 // Paint the card around the animated reservation; only its content clips.
                 style
                     .apply(
@@ -364,8 +387,10 @@ impl Studio {
             2 => {
                 // Keep the centered container stable while its children reflow.
                 let mut row = div().w(px(600.)).flex().gap_4().p_4();
+
                 for i in 0..4 {
                     let present = !on || i != 1;
+
                     let frame = self.presence[i].frame(
                         Motion::new(Target::default().opacity(1.))
                             .initial(Target::default().opacity(0.))
@@ -375,6 +400,7 @@ impl Studio {
                         w,
                         cx,
                     );
+
                     if frame.is_mounted() {
                         row = row.child(
                             self.pop
@@ -403,6 +429,7 @@ impl Studio {
                         );
                     }
                 }
+
                 self.pop.container("exit-container", row).into_any_element()
             }
             3 => {
@@ -417,7 +444,9 @@ impl Studio {
                         .while_hover(Target::default().opacity(0.8))
                         .while_press(Target::default().opacity(0.6)),
                 );
+
                 let mut list = div().flex().flex_col().gap_3().w(px(280.));
+
                 for &i in self.reorder.order().iter() {
                     list = list.child(
                         self.reorder
@@ -439,6 +468,7 @@ impl Studio {
                             .transition(self.spring),
                     );
                 }
+
                 div()
                     .flex()
                     .gap_8()
@@ -456,6 +486,7 @@ impl Studio {
                     div().h(px(4.)).bg(rgb(ACCENT)),
                 )
                 .transition(self.spring);
+
                 div()
                     .flex()
                     .gap_8()
@@ -568,7 +599,9 @@ impl Studio {
                     .transition(self.spring)
                     // Rest on a complete wave; retract only during the active demo beat.
                     .reveal(StrokeReveal::new(if on { 0.35 } else { 1. }, 0., 1.).unwrap());
+
                 let frame = self.playback.frame(&self.clip, w, cx);
+
                 div()
                     .flex()
                     .flex_col()
@@ -604,8 +637,10 @@ impl Studio {
                     .aria_label("Workspace tabs")
                     .flex()
                     .gap_2();
+
                 for &key in self.tabs.order().iter() {
                     let active = self.active_tab == key;
+
                     tabs = tabs.child(
                         self.tabs
                             .item(
@@ -642,11 +677,14 @@ impl Studio {
                             .transition(self.spring),
                     );
                 }
+
                 let changed = self.rendered_tab != self.active_tab;
+
                 if changed {
                     self.tab_motion = MotionState::default();
                     self.rendered_tab = self.active_tab;
                 }
+
                 let frame = self.tab_motion.frame(
                     Motion::new(Target::default())
                         .initial(if changed {
@@ -658,12 +696,14 @@ impl Studio {
                     w,
                     cx,
                 );
+
                 let descriptions = [
                     "Everything in its place.",
                     "A little progress, every day.",
                     "Room for your next idea.",
                     "Keep the thoughts worth keeping.",
                 ];
+
                 div()
                     .w(px(600.))
                     .flex()
@@ -712,44 +752,57 @@ impl Studio {
 impl Render for Studio {
     fn render(&mut self, w: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let now = self.epoch.elapsed();
+
         if (cx.reduce_motion() || !w.is_window_active()) && self.touring {
             self.touring = false;
             self.clock.pause(now);
         }
+
         let elapsed = self.clock.time(now).as_secs_f64();
+
         if self.touring {
             let (scene, on) = tour_position(elapsed);
+
             if scene != self.scene {
                 self.drag.cancel(cx);
                 self.focus.focus(w, cx);
+
                 if scene == 5 {
                     self.playback.restart(self.playback.now());
                 }
             }
+
             self.scene = scene;
             self.alternate = on;
+
             if self.scene == 3 {
                 let order = if on { vec![2, 0, 1] } else { vec![0, 1, 2] };
+
                 if *self.reorder.order() != order {
                     self.reorder.set_order(order).unwrap();
                 }
             }
+
             if self.scene == 4 {
                 // Hand control to the presenter; never overwrite their scroll offset.
                 self.explore(cx);
                 self.clock.seek(Duration::from_secs(24), now);
             }
+
             if self.scene == 6 {
                 let order = if on {
                     vec![2, 0, 1, 3]
                 } else {
                     vec![0, 1, 2, 3]
                 };
+
                 if *self.tabs.order() != order {
                     self.tabs.set_order(order).unwrap();
                 }
+
                 self.active_tab = if on { 2 } else { 0 };
             }
+
             if elapsed >= TOUR_SECONDS {
                 self.touring = false;
                 self.clock.pause(now);
@@ -757,12 +810,15 @@ impl Render for Studio {
                 w.request_animation_frame();
             }
         }
+
         let changing_scene = self.rendered_scene != self.scene;
+
         if changing_scene {
             // Each experiment is a new mount; the selection highlight keeps its momentum.
             self.stage_motion = MotionState::default();
             self.rendered_scene = self.scene;
         }
+
         let entrance = self.stage_motion.frame(
             Motion::new(Target::default())
                 .initial(if changing_scene {
@@ -774,12 +830,15 @@ impl Render for Studio {
             w,
             cx,
         );
+
         let stage = entrance.apply(div().child(self.stage(w, cx)));
+
         let selection = self.selection_motion.frame(
             Motion::new(Target::default().x(self.scene as f32 * 72.)).transition(self.spring),
             w,
             cx,
         );
+
         let mut chapters = div().relative().flex().gap(px(8.)).child(
             div()
                 .absolute()
@@ -787,6 +846,7 @@ impl Render for Studio {
                 .left_0()
                 .child(selection.apply(div().w(px(64.)).h(px(44.)).rounded_lg().bg(rgb(LINE)))),
         );
+
         for i in 0..EXPERIMENTS {
             chapters = chapters.child(
                 button(("experiment", i), format!("0{}", i + 1))
@@ -801,6 +861,7 @@ impl Render for Studio {
                     .on_click(cx.listener(move |s, _, w, cx| s.select(i, w, cx))),
             );
         }
+
         div()
             .id("studio")
             .track_focus(&self.focus)
@@ -817,6 +878,7 @@ impl Render for Studio {
                 s.touring = false;
                 s.clock.pause(s.epoch.elapsed());
                 s.alternate = !s.alternate;
+
                 if s.scene == 3 {
                     s.reorder
                         .set_order(if s.alternate {
@@ -826,6 +888,7 @@ impl Render for Studio {
                         })
                         .unwrap();
                 }
+
                 cx.notify();
             }))
             .on_action(
@@ -841,10 +904,13 @@ impl Render for Studio {
             }))
             .on_action(cx.listener(|s, _: &Reduce, _, cx| {
                 let reduced = !cx.reduce_motion();
+
                 cx.set_reduce_motion(reduced);
+
                 if !reduced {
                     s.playback.restart(s.playback.now());
                 }
+
                 cx.notify();
             }))
             .on_action(|_: &FocusNext, w, cx| w.focus_next(cx))
@@ -902,6 +968,7 @@ impl Render for Studio {
 }
 fn main() {
     let assets = common::SvgAsset(include_bytes!("assets/showcase.svg"));
+
     gpui_platform::application()
         .with_assets(assets)
         .run(|cx: &mut App| {
@@ -912,6 +979,7 @@ fn main() {
             } else {
                 "ctrl"
             };
+
             cx.bind_keys([
                 KeyBinding::new("p", Play, None),
                 KeyBinding::new("g", Flip, None),
@@ -925,6 +993,7 @@ fn main() {
                 KeyBinding::new(&format!("{modifier}-q"), Quit, None),
             ]);
             let bounds = Bounds::centered(None, size(px(1000.), px(600.)), cx);
+
             let window = cx
                 .open_window(
                     WindowOptions {
@@ -939,6 +1008,7 @@ fn main() {
                     |w, cx| cx.new(|cx| Studio::new(w, cx)),
                 )
                 .expect("open studio");
+
             window.update(cx, |_, w, _| w.activate_window()).unwrap();
             cx.activate(true);
         });
@@ -961,8 +1031,10 @@ mod tests {
     #[test]
     fn wave_has_matching_tangents_at_the_join_in_both_states() {
         use super::PathCommand;
+
         for high in [false, true] {
             let shape = super::curve(high);
+
             let [
                 _,
                 PathCommand::Cubic(_, incoming, join),
@@ -971,6 +1043,7 @@ mod tests {
             else {
                 panic!("two cubic wave segments")
             };
+
             for axis in 0..2 {
                 assert_eq!(
                     join[axis] - incoming[axis],

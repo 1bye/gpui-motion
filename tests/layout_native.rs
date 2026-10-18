@@ -22,6 +22,7 @@ impl Render for Fixture {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         cx.set_reduce_motion(self.reduced);
         let clicks = self.clicks.clone();
+
         let item = self
             .group
             .position(
@@ -38,6 +39,7 @@ impl Render for Fixture {
             )
             .transition(Transition::Tween(Duration::from_secs(1), Easing::Linear))
             .enabled(self.enabled);
+
         let row = div()
             .id("row")
             .flex()
@@ -46,6 +48,7 @@ impl Render for Fixture {
             .flex_shrink_0()
             .child(div().w(px(self.child_gap)).flex_shrink_0())
             .child(item);
+
         let parent = div()
             .id("parent")
             .debug_selector(|| "parent".into())
@@ -53,6 +56,7 @@ impl Render for Fixture {
             .h(px(400.))
             .flex_shrink_0()
             .child(row);
+
         let content = div()
             .flex()
             .w(px(1000.))
@@ -66,6 +70,7 @@ impl Render for Fixture {
             } else {
                 parent.into_any_element()
             });
+
         div()
             .id("scroller")
             .w(px(300.))
@@ -78,6 +83,7 @@ impl Render for Fixture {
 fn setup(cx: &mut TestAppContext, nested: bool) -> (gpui::WindowHandle<Fixture>, Rc<Cell<usize>>) {
     let clicks = Rc::new(Cell::new(0));
     let copy = clicks.clone();
+
     let window = cx.open_window(size(px(600.), px(300.)), move |_, _| Fixture {
         group: LayoutGroup::default(),
         gap: 0.,
@@ -89,7 +95,9 @@ fn setup(cx: &mut TestAppContext, nested: bool) -> (gpui::WindowHandle<Fixture>,
         scroll: gpui::ScrollHandle::new(),
         clicks: copy,
     });
+
     draw(cx, window);
+
     (window, clicks)
 }
 fn draw(cx: &mut TestAppContext, window: gpui::WindowHandle<Fixture>) {
@@ -111,6 +119,7 @@ fn bounds(
 #[gpui::test]
 fn measured_layout_changes_translate_hitboxes_and_use_final_size(cx: &mut TestAppContext) {
     let (window, clicks) = setup(cx, false);
+
     assert_eq!(bounds(cx, window, "item").origin, point(px(0.), px(0.)));
     window
         .update(cx, |view, _, cx| {
@@ -121,9 +130,11 @@ fn measured_layout_changes_translate_hitboxes_and_use_final_size(cx: &mut TestAp
         .unwrap();
     draw(cx, window);
     let first = bounds(cx, window, "item");
+
     assert_eq!(first.origin, point(px(0.), px(0.)));
     assert_eq!(first.size, size(px(40.), px(20.)));
     let mut visual = VisualTestContext::from_window(window.into(), cx);
+
     visual.simulate_mouse_down(
         point(px(110.), px(10.)),
         MouseButton::Left,
@@ -160,6 +171,7 @@ fn measured_layout_changes_translate_hitboxes_and_use_final_size(cx: &mut TestAp
 #[gpui::test]
 fn nested_wrappers_inherit_parent_translation_without_doubling_it(cx: &mut TestAppContext) {
     let (window, _) = setup(cx, true);
+
     window
         .update(cx, |view, _, cx| {
             view.gap = 100.;
@@ -184,6 +196,7 @@ fn scrolling_moves_presentation_directly_without_starting_a_layout_animation(
     cx: &mut TestAppContext,
 ) {
     let (window, _) = setup(cx, false);
+
     window
         .update(cx, |view, _, cx| {
             view.child_gap = 100.;
@@ -211,6 +224,7 @@ fn scrolling_moves_presentation_directly_without_starting_a_layout_animation(
 #[gpui::test]
 fn disabled_or_reduced_motion_follows_layout_immediately(cx: &mut TestAppContext) {
     let (window, _) = setup(cx, false);
+
     window
         .update(cx, |view, _, cx| {
             view.gap = 100.;
@@ -241,18 +255,21 @@ struct Flow {
 impl Render for Flow {
     fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
         let count: usize = if self.extra { 4 } else { 3 };
+
         let mut row = div()
             .flex()
             .flex_wrap()
             .content_start()
             .gap(px(10.))
             .w(px(if self.narrow { 100. } else { 150. }));
+
         for index in 0..count {
             let id = if self.reverse {
                 count - 1 - index
             } else {
                 index
             };
+
             row = row.child(
                 self.group
                     .position(
@@ -267,6 +284,7 @@ impl Render for Flow {
                     .transition(Transition::Tween(Duration::from_secs(1), Easing::Linear)),
             );
         }
+
         row
     }
 }
@@ -278,6 +296,7 @@ fn wrapping_reorder_and_insertion_follow_measured_layout_with_stable_keys(cx: &m
         reverse: false,
         extra: false,
     });
+
     let draw = |cx: &mut TestAppContext| {
         cx.update_window(window.into(), |_, w, cx| {
             w.simulate_next_frame(cx);
@@ -285,12 +304,14 @@ fn wrapping_reorder_and_insertion_follow_measured_layout_with_stable_keys(cx: &m
         })
         .unwrap();
     };
+
     let origin = |cx: &TestAppContext, key| {
         VisualTestContext::from_window(window.into(), cx)
             .debug_bounds(key)
             .unwrap()
             .origin
     };
+
     draw(cx);
     assert_eq!(origin(cx, "card-2"), point(px(100.), px(0.)));
     window

@@ -32,6 +32,7 @@ actions!(
 );
 fn button(id: impl Into<gpui::ElementId>, label: impl Into<gpui::SharedString>) -> Stateful<Div> {
     let label = label.into();
+
     div()
         .id(id)
         .role(Role::Button)
@@ -97,15 +98,20 @@ impl Gallery {
     }
     fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
         let root = cx.focus_handle();
+
         root.focus(window, cx);
         let commits = Rc::new(Cell::new(0));
         let count = commits.clone();
+
         let reorder = ReorderGroup::new(vec![1, 2, 3, 4, 5], Axis::Y)
             .unwrap()
             .on_change(move |_, _, _| count.set(count.get() + 1));
+
         let mut presence = PresenceGroup::new(PresenceMode::Sync);
+
         presence.update(0..6).unwrap();
         let shapes = [shape(false), shape(true)];
+
         Self {
             root,
             page: 0,
@@ -135,6 +141,7 @@ impl Gallery {
     }
     fn layout(&mut self, window: &mut Window, cx: &mut Context<Self>) -> gpui::AnyElement {
         let transition = self.transition();
+
         let content = div()
             .w(px(480.))
             .flex()
@@ -151,9 +158,11 @@ impl Gallery {
                         .child(format!("Content row {} — measured by CE", i + 1))
                 }))
             });
+
         let accordion = AutoSize::new("accordion", content)
             .width(480.)
             .transition(transition);
+
         let mut row = div()
             .id("pop-row")
             .relative()
@@ -163,13 +172,16 @@ impl Gallery {
             .p_2()
             .w(px(660.))
             .h(px(92.));
+
         let children: Vec<_> = self
             .presence
             .children()
             .iter()
             .map(|c| (*c.key(), c.is_present()))
             .collect();
+
         let mut finished = Vec::new();
+
         for (id, present) in children {
             let frame = self.states[id].frame(
                 Motion::new(Target::default().opacity(1.))
@@ -180,10 +192,12 @@ impl Gallery {
                 window,
                 cx,
             );
+
             if !frame.is_mounted() {
                 finished.push(id);
                 continue;
             }
+
             let card = frame
                 .apply(
                     button(("pop-card", id), format!("Card {}", id + 1))
@@ -199,16 +213,19 @@ impl Gallery {
                         cx.notify();
                     }
                 }));
+
             row = row.child(
                 self.pop
                     .item(("pop", id), present, card)
                     .transition(transition),
             );
         }
+
         for id in finished {
             self.presence.finish_exit(&id);
             window.request_animation_frame();
         }
+
         div()
             .flex()
             .flex_col()
@@ -229,6 +246,7 @@ impl Gallery {
                 this.clicks += 1;
                 cx.notify();
             }));
+
         let element = self.gestures.bind(
             "gesture",
             control,
@@ -238,6 +256,7 @@ impl Gallery {
                 .while_hover(Target::default().opacity(0.8))
                 .while_press(Target::default().opacity(0.5)),
         );
+
         let progress = ScrollMotion::new(
             "scroll-progress",
             self.scroll.clone(),
@@ -247,6 +266,7 @@ impl Gallery {
             div().h(px(8.)).bg(rgb(0xb8c8ff)),
         )
         .transition(Transition::default());
+
         div().flex().flex_col().gap_4()
             .child("Hover/press feedback binds automatically. Drag inside the stage; release outside, or Escape to cancel.")
             .child(div().w(px(480.)).h(px(180.)).p_3().bg(rgb(0x222b3b)).rounded_lg().child(element))
@@ -258,6 +278,7 @@ impl Gallery {
     }
     fn reorder(&self) -> gpui::AnyElement {
         let mut list = div().flex().flex_col().gap_3().w(px(340.));
+
         for key in self.reorder.order().iter().copied() {
             let card = button(
                 ("reorder-card", usize::from(key)),
@@ -266,12 +287,14 @@ impl Gallery {
             .w(px(340.))
             .h(px(52.))
             .flex_shrink_0();
+
             list = list.child(
                 self.reorder
                     .item(("reorder", usize::from(key)), key, card)
                     .transition(self.transition()),
             );
         }
+
         div().flex().flex_col().gap_4().child("Drag an item. Alt+Up / Alt+Down moves the focused item. Escape restores a pointer gesture's original order.")
             .child(list).child(format!("Committed reorder operations: {}",self.commits.get())).into_any_element()
     }
@@ -288,6 +311,7 @@ impl Gallery {
             .items_center()
             .justify_center()
             .child("First appearance");
+
         let second = div()
             .absolute()
             .left(px(370.))
@@ -300,6 +324,7 @@ impl Gallery {
             .items_center()
             .justify_center()
             .child("Second appearance");
+
         div().flex().flex_col().gap_4().child("G switches the active appearance. Reverse during movement to interrupt.")
             .child(div().relative().w(px(660.)).h(px(220.)).bg(rgb(0x222b3b)).rounded_lg()
                 .child(self.shared.member(0,"shared-first",!self.alternate,first).transition(self.transition()))
@@ -308,6 +333,7 @@ impl Gallery {
     }
     fn vector(&mut self, window: &mut Window, cx: &mut Context<Self>) -> gpui::AnyElement {
         let transition = self.transition();
+
         let vector = self
             .vector
             .element(
@@ -326,11 +352,13 @@ impl Gallery {
                 )
                 .unwrap(),
             );
+
         let vector = if self.filled {
             vector.fill()
         } else {
             vector.stroke(4.)
         };
+
         let svg_frame = self.svg.frame(
             SvgMotion::new(
                 SvgTarget::default()
@@ -342,16 +370,19 @@ impl Gallery {
             window,
             cx,
         );
+
         let pivot = if self.pivot {
             gpui::point(px(0.), px(0.))
         } else {
             gpui::point(px(40.), px(40.))
         };
+
         let svg = gpui::svg()
             .path("motion.svg")
             .size(px(80.))
             .text_color(rgb(0xffd4a0))
             .with_transformation(svg_frame.transformation_about(size(px(80.), px(80.)), pivot));
+
         div().flex().flex_col().gap_4()
             .child("G morphs compatible curve controls and changes normalized stroke length/offset/spacing.")
             .child(div().flex().gap_4().child(button("fill","Stroke / fill").on_click(cx.listener(|this,_,_,cx|{this.filled= !this.filled;cx.notify();})))
@@ -386,14 +417,17 @@ impl Gallery {
             )
             .value(StyleProperty::Blur, if self.blur { 2. } else { 0. })
             .value(StyleProperty::BackdropBlur, if self.blur { 8. } else { 0. });
+
         let frame = self.styles.frame(
             StyleMotion::new(target).transition(self.transition()),
             window,
             cx,
         );
+
         let card = frame.apply(div().w(px(360.)).h(px(150.)).child(
             "Native colors, padding, four corner radii, border widths, and shadow parameters.",
         ));
+
         div().flex().flex_col().gap_4().child("G changes styles. Blur uses CE's offscreen filter path and has a separate GPU cost.")
             .child(button("blur","Toggle blur / backdrop blur").on_click(cx.listener(|this,_,_,cx|{this.blur= !this.blur;cx.notify();})))
             .child(div().w(px(500.)).h(px(250.)).p_6().bg(rgb(0x283040)).child(card))
@@ -403,6 +437,7 @@ impl Gallery {
 impl Render for Gallery {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let mut pages = div().flex().gap_2();
+
         for (index, name) in [
             "Layout",
             "Input / scroll",
@@ -425,6 +460,7 @@ impl Render for Gallery {
                     })),
             );
         }
+
         let panel = match self.page {
             0 => self.layout(window, cx),
             1 => self.input(window, cx),
@@ -433,6 +469,7 @@ impl Render for Gallery {
             4 => self.vector(window, cx),
             _ => self.styles(window, cx),
         };
+
         let status = format!(
             "{} · Reduced motion {} · {} clicks",
             if self.tween {
@@ -443,6 +480,7 @@ impl Render for Gallery {
             cx.reduce_motion(),
             self.clicks
         );
+
         div()
             .id("native-gallery")
             .track_focus(&self.root)
@@ -472,6 +510,7 @@ impl Render for Gallery {
             }))
             .on_action(cx.listener(|_, _: &Reduced, _, cx| {
                 let value = !cx.reduce_motion();
+
                 cx.set_reduce_motion(value);
                 cx.notify();
             }))
@@ -522,6 +561,7 @@ impl Render for Gallery {
 }
 fn main() {
     let assets = common::SvgAsset(include_bytes!("assets/motion.svg"));
+
     gpui_platform::application()
         .with_assets(assets)
         .run(|cx: &mut App| {
@@ -530,6 +570,7 @@ fn main() {
             } else {
                 "ctrl"
             };
+
             cx.on_action(|_: &Quit, cx| cx.quit());
             cx.on_window_closed(|cx, _| cx.quit()).detach();
             cx.bind_keys([
@@ -553,6 +594,7 @@ fn main() {
                 ]),
             ]);
             let bounds = Bounds::centered(None, size(px(1040.), px(860.)), cx);
+
             let window = cx
                 .open_window(
                     WindowOptions {
@@ -567,6 +609,7 @@ fn main() {
                     |w, cx| cx.new(|cx| Gallery::new(w, cx)),
                 )
                 .expect("open native gallery");
+
             window
                 .update(cx, |_, w, _| w.activate_window())
                 .expect("gallery window");

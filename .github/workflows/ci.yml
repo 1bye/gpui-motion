@@ -26,3 +26,13 @@ jobs:
           RUSTDOCFLAGS: -D warnings
       - run: cargo build --locked --release --features demo --examples
       - run: cargo publish --dry-run --locked --features gpui
+
+  spacing:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: rustup toolchain install nightly-2026-08-20 --profile minimal --component rustc-dev,llvm-tools-preview,rust-src
+      - run: cargo +nightly-2026-08-20 install cargo-dylint dylint-link --version 6.2.0 --locked
+      - run: python3 -m unittest discover -s scripts -p test_readme.py -v
+      - run: python3 scripts/check_spacing.py
+      - run: python3 scripts/test_readme_integration.py -v

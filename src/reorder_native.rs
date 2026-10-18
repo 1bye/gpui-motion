@@ -63,6 +63,7 @@ impl<K: Clone + Eq + Hash + 'static> ReorderGroup<K> {
         {
             return Err(AnimationError::Index);
         }
+
         Ok(Self(Rc::new(RefCell::new(Data {
             order,
             metrics: HashMap::new(),
@@ -80,6 +81,7 @@ impl<K: Clone + Eq + Hash + 'static> ReorderGroup<K> {
     /// runs without borrowing group state and may update application entities.
     pub fn on_change(self, callback: impl Fn(&[K], &mut Window, &mut App) + 'static) -> Self {
         self.0.borrow_mut().change = Some(Rc::new(callback));
+
         self
     }
     /// Updates membership/order and cancels an active gesture. Duplicate keys fail
@@ -92,10 +94,13 @@ impl<K: Clone + Eq + Hash + 'static> ReorderGroup<K> {
         {
             return Err(AnimationError::Index);
         }
+
         let mut data = self.0.borrow_mut();
+
         data.grab = None;
         data.metrics.retain(|k, _| order.contains(k));
         data.order = order;
+
         Ok(())
     }
     /// Wraps a styled item in measured position interpolation and native handlers.
@@ -107,6 +112,7 @@ impl<K: Clone + Eq + Hash + 'static> ReorderGroup<K> {
         child: Stateful<Div>,
     ) -> ReorderElement<K> {
         assert!(self.0.borrow().order.contains(&key), "unknown reorder key");
+
         ReorderElement {
             group: self.clone(),
             id: id.into(),
@@ -132,6 +138,7 @@ impl<K> ReorderElement<K> {
     /// Selects sibling/release position timing.
     pub fn transition(mut self, transition: Transition) -> Self {
         self.transition = transition;
+
         self
     }
 }
@@ -171,8 +178,10 @@ impl<K: Clone + Eq + Hash + 'static> Element for ReorderElement<K> {
         cx: &mut App,
     ) -> (LayoutId, AnyElement) {
         let mut data = self.group.0.borrow_mut();
+
         data.epoch
             .get_or_insert_with(|| cx.background_executor().now());
+
         if (!w.is_window_active()
             || data.grab.as_ref().is_some_and(|g| {
                 data.metrics
@@ -184,6 +193,7 @@ impl<K: Clone + Eq + Hash + 'static> Element for ReorderElement<K> {
             data.order = grab.original;
             w.request_animation_frame();
         }
+
         let metric = data
             .metrics
             .entry(self.key.clone())
@@ -192,7 +202,9 @@ impl<K: Clone + Eq + Hash + 'static> Element for ReorderElement<K> {
                 values: [MotionValue::new(0.), MotionValue::new(0.)],
                 focus: cx.focus_handle().tab_stop(true),
             });
+
         let focus = metric.focus.clone();
+
         drop(data);
         let mut child = self
             .child
@@ -201,7 +213,9 @@ impl<K: Clone + Eq + Hash + 'static> Element for ReorderElement<K> {
             .track_focus(&focus)
             .tab_index(0)
             .into_any_element();
+
         let layout = child.request_layout(w, cx);
+
         (layout, child)
     }
     fn prepaint(
@@ -214,27 +228,34 @@ impl<K: Clone + Eq + Hash + 'static> Element for ReorderElement<K> {
         cx: &mut App,
     ) -> Hitbox {
         let mut data = self.group.0.borrow_mut();
+
         let now = cx
             .background_executor()
             .now()
             .saturating_duration_since(data.epoch.expect("epoch"));
+
         let raw = bounds.origin - w.pixel_snap_point(w.element_offset());
         let target = [f64::from(raw.x), f64::from(raw.y)];
         let axis = data.axis;
+
         let drag = data
             .grab
             .as_ref()
             .filter(|g| g.key == self.key)
             .map(|g| g.pointer - g.offset);
+
         let metric = data.metrics.get_mut(&self.key).expect("layout first");
         let first = metric.bounds.size.width == px(0.) && metric.bounds.size.height == px(0.);
+
         metric.bounds = bounds;
         let mut presented = target;
         let mut active = false;
+
         for i in 0..2 {
             if first {
                 metric.values[i].jump(target[i], now);
             }
+
             if let Some(position) = drag
                 && i == match axis {
                     Axis::X => 0,
@@ -246,30 +267,39 @@ impl<K: Clone + Eq + Hash + 'static> Element for ReorderElement<K> {
                 } else {
                     f64::from(w.element_offset().y)
                 };
+
                 metric.values[i].set(position - offset, now);
             } else {
                 metric.values[i].animate(target[i], self.transition, now);
             }
+
             let frame = metric.values[i].sample(now, cx.reduce_motion());
+
             presented[i] = frame.value();
             active |= frame.is_animating();
         }
+
         if active {
             w.request_animation_frame();
         }
+
         drop(data);
         let offset = point(
             px((presented[0] - target[0]) as f32),
             px((presented[1] - target[1]) as f32),
         );
+
         let displayed = Bounds {
             origin: bounds.origin + offset,
             size: bounds.size,
         };
+
         let hitbox = w.insert_hitbox(displayed, HitboxBehavior::Normal);
+
         w.with_element_offset(offset, |w| {
             child.prepaint(w, cx);
         });
+
         hitbox
     }
     fn paint(
@@ -286,56 +316,73 @@ impl<K: Clone + Eq + Hash + 'static> Element for ReorderElement<K> {
         let group = self.group.clone();
         let key = self.key.clone();
         let region = hitbox.clone();
+
         w.on_mouse_event(move |event: &MouseDownEvent, phase, w, cx| {
             if phase == DispatchPhase::Bubble
                 && event.button == MouseButton::Left
                 && region.is_hovered(w)
             {
                 let mut data = group.0.borrow_mut();
+
                 if data.grab.is_some() {
                     return;
                 }
+
                 let p = pointer(event.position, data.axis);
                 let original = data.order.clone();
+
                 data.grab = Some(Grab {
                     key: key.clone(),
                     offset: p - coordinate(region.bounds, data.axis).0,
                     pointer: p,
                     original,
                 });
+
                 if let Some(metric) = data.metrics.get(&key) {
                     metric.focus.focus(w, cx);
                 }
+
                 cx.notify(owner);
                 cx.stop_propagation();
             }
         });
         let group = self.group.clone();
         let key = self.key.clone();
+
         w.on_mouse_event(move |event: &MouseMoveEvent, phase, _, cx| {
             if phase != DispatchPhase::Capture {
                 return;
             }
+
             let mut data = group.0.borrow_mut();
+
             if !data.grab.as_ref().is_some_and(|g| g.key == key) {
                 return;
             }
+
             if event.pressed_button != Some(MouseButton::Left) {
                 let original = data.grab.take().expect("grab").original;
+
                 data.order = original;
                 cx.notify(owner);
+
                 return;
             }
+
             let p = pointer(event.position, data.axis);
             let axis = data.axis;
             let grab = data.grab.as_mut().expect("grab");
+
             grab.pointer = p;
             let start = p - grab.offset;
+
             let length = data
                 .metrics
                 .get(&key)
                 .map_or(0., |m| coordinate(m.bounds, axis).1);
+
             let center = start + length * 0.5;
+
             let destination = data
                 .order
                 .iter()
@@ -343,24 +390,31 @@ impl<K: Clone + Eq + Hash + 'static> Element for ReorderElement<K> {
                 .filter_map(|(i, k)| {
                     data.metrics.get(k).map(|m| {
                         let (start, length) = coordinate(m.bounds, axis);
+
                         (i, (start + length * 0.5 - center).abs())
                     })
                 })
                 .min_by(|a, b| a.1.total_cmp(&b.1))
                 .map(|v| v.0);
+
             if let Some(to) = destination {
                 let from = data.order.iter().position(|k| *k == key).expect("key");
+
                 move_item(&mut data.order, from, to).expect("indices");
             }
+
             cx.notify(owner);
         });
         let group = self.group.clone();
         let key = self.key.clone();
+
         w.on_mouse_event(move |event: &MouseUpEvent, phase, w, cx| {
             if phase == DispatchPhase::Capture && event.button == MouseButton::Left {
                 let mut data = group.0.borrow_mut();
+
                 if data.grab.as_ref().is_some_and(|g| g.key == key) {
                     let changed = data.grab.take().expect("grab").original != data.order;
+
                     let notification = if changed {
                         data.change
                             .clone()
@@ -368,21 +422,27 @@ impl<K: Clone + Eq + Hash + 'static> Element for ReorderElement<K> {
                     } else {
                         None
                     };
+
                     drop(data);
+
                     if let Some((change, order)) = notification {
                         change(&order, w, cx);
                     }
+
                     cx.notify(owner);
                 }
             }
         });
         let group = self.group.clone();
         let key = self.key.clone();
+
         w.on_key_event(move |event: &KeyDownEvent, phase, w, cx| {
             if phase != DispatchPhase::Capture {
                 return;
             }
+
             let mut data = group.0.borrow_mut();
+
             if !data
                 .metrics
                 .get(&key)
@@ -390,33 +450,42 @@ impl<K: Clone + Eq + Hash + 'static> Element for ReorderElement<K> {
             {
                 return;
             }
+
             if event.keystroke.key == "escape" {
                 if let Some(grab) = data.grab.take() {
                     data.order = grab.original;
                     cx.notify(owner);
                 }
+
                 return;
             }
+
             if !event.keystroke.modifiers.alt {
                 return;
             }
+
             let delta = match (data.axis, event.keystroke.key.as_str()) {
                 (Axis::Y, "up") | (Axis::X, "left") => -1,
                 (Axis::Y, "down") | (Axis::X, "right") => 1,
                 _ => return,
             };
+
             let from = data.order.iter().position(|k| *k == key).expect("key");
             let to = from.saturating_add_signed(delta).min(data.order.len() - 1);
+
             if from != to {
                 move_item(&mut data.order, from, to).expect("indices");
                 let notification = data
                     .change
                     .clone()
                     .map(|change| (change, data.order.clone()));
+
                 drop(data);
+
                 if let Some((change, order)) = notification {
                     change(&order, w, cx);
                 }
+
                 cx.notify(owner);
                 cx.stop_propagation();
             }

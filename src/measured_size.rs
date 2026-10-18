@@ -52,29 +52,34 @@ impl<E> AutoSize<E> {
     /// Chooses interpolated dimensions.
     pub fn axis(mut self, axis: SizeAxis) -> Self {
         self.axis = axis;
+
         self
     }
     /// Available width for intrinsic measurement. Does not force the child's width.
     pub fn width(mut self, width: f32) -> Self {
         assert!(width.is_finite() && width >= 0.);
         self.width = Some(width);
+
         self
     }
     /// Available height for intrinsic measurement.
     pub fn height(mut self, height: f32) -> Self {
         assert!(height.is_finite() && height >= 0.);
         self.height = Some(height);
+
         self
     }
     /// Sets positional spring/tween/instant timing for measured sizes.
     pub fn transition(mut self, transition: Transition) -> Self {
         self.transition = transition;
+
         self
     }
     /// Opts into entrance from a finite non-negative size, once per mount.
     pub fn initial(mut self, value: [f32; 2]) -> Self {
         assert!(value.iter().all(|v| v.is_finite() && *v >= 0.));
         self.initial = Some(value);
+
         self
     }
 }
@@ -113,28 +118,34 @@ impl<E: IntoElement + 'static> Element for AutoSize<E> {
         cx: &mut App,
     ) -> (LayoutId, AnyElement) {
         let mut child = self.child.take().expect("one layout").into_any_element();
+
         let available = |value: Option<f32>| {
             value.map_or(AvailableSpace::MaxContent, |v| {
                 AvailableSpace::Definite(px(v))
             })
         };
+
         let measured = child.layout_as_root(
             size(available(self.width), available(self.height)),
             window,
             cx,
         );
+
         let target = [f64::from(measured.width), f64::from(measured.height)];
         let now = cx.background_executor().now();
+
         let transitions = match self.axis {
             SizeAxis::Width => [self.transition, Transition::Instant],
             SizeAxis::Height => [Transition::Instant, self.transition],
             SizeAxis::Both => [self.transition; 2],
         };
+
         let frame = window.with_element_state(
             id.expect("size ID"),
             |state: Option<SizeHistory>, window| {
                 let mut state = state.unwrap_or_else(|| {
                     let mut state = LayoutPositionState::default();
+
                     if let Some(initial) = self.initial {
                         state.sample(
                             initial.map(f64::from),
@@ -143,34 +154,43 @@ impl<E: IntoElement + 'static> Element for AutoSize<E> {
                             cx.reduce_motion(),
                         );
                     }
+
                     SizeHistory { state, epoch: now }
                 });
+
                 let frame = state.state.sample_axes(
                     target,
                     transitions,
                     now.saturating_duration_since(state.epoch),
                     cx.reduce_motion(),
                 );
+
                 if frame.is_animating() {
                     window.request_animation_frame();
                 }
+
                 (frame, state)
             },
         );
+
         let [mut width, mut height] = frame
             .position()
             .map(|v| px(v.clamp(0., f64::from(f32::MAX)) as f32));
+
         if matches!(self.axis, SizeAxis::Height) {
             width = measured.width;
         }
+
         if matches!(self.axis, SizeAxis::Width) {
             height = measured.height;
         }
+
         let style = Style {
             size: size(width.into(), height.into()),
             flex_shrink: 0.,
             ..Default::default()
         };
+
         (window.request_layout(style, [], cx), child)
     }
     fn prepaint(
@@ -185,6 +205,7 @@ impl<E: IntoElement + 'static> Element for AutoSize<E> {
         window.with_content_mask(Some(content_mask(bounds)), |w| {
             child.prepaint_at(bounds.origin, w, cx);
         });
+
         bounds
     }
     fn paint(

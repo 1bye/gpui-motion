@@ -57,6 +57,7 @@ impl Keyframe {
     /// Easing for the segment ending at this keyframe.
     pub fn easing(mut self, easing: Easing) -> Self {
         self.easing = easing;
+
         self
     }
 }
@@ -106,10 +107,12 @@ impl Animation {
         frames: impl IntoIterator<Item = Keyframe>,
     ) -> Result<Self, AnimationError> {
         let frames: Vec<_> = frames.into_iter().collect();
+
         if frames.len() < 2 || frames.first().unwrap().at != 0.0 || frames.last().unwrap().at != 1.0
         {
             return Err(AnimationError::Keyframes);
         }
+
         if frames
             .iter()
             .any(|f| !f.at.is_finite() || !(0.0..=1.0).contains(&f.at))
@@ -117,6 +120,7 @@ impl Animation {
         {
             return Err(AnimationError::Times);
         }
+
         Ok(Self {
             clip: Arc::new(Clip {
                 frames,
@@ -145,12 +149,15 @@ impl Animation {
     /// Use ordinary `Motion` springs for unconstrained, tolerance-based settling.
     pub fn spring(target: Target, spring: Spring, duration: Duration) -> Self {
         let mut animation = Self::to(target, duration, Easing::default());
+
         Arc::make_mut(&mut animation.clip).spring = Some(spring);
+
         animation
     }
     /// Holds the first presentation before playback starts.
     pub fn delay(mut self, duration: Duration) -> Self {
         self.delay = duration;
+
         self
     }
     /// Sets repeat count/mode and the hold between cycles.
@@ -163,9 +170,11 @@ impl Animation {
         if self.clip.duration.is_zero() && repeat != Repeat::Count(0) {
             return Err(AnimationError::ZeroPeriod);
         }
+
         self.repeat = repeat;
         self.mode = mode;
         self.repeat_delay = delay;
+
         Ok(self)
     }
     /// Total duration, including initial/inter-cycle holds; `None` denotes infinity.
@@ -196,6 +205,7 @@ impl Animation {
         let period = duration + self.repeat_delay.as_secs_f64();
         let relative = time.saturating_sub(self.delay).as_secs_f64();
         let done = force_end || self.duration().is_some_and(|end| time >= end);
+
         let iteration = if done {
             match self.repeat {
                 Repeat::Count(n) => u64::from(n),
@@ -206,24 +216,30 @@ impl Animation {
         } else {
             0
         };
+
         let local = if done {
             duration
         } else {
             (relative - iteration as f64 * period).clamp(0.0, duration)
         };
+
         let mut progress = if duration > 0.0 {
             local / duration
         } else {
             1.0
         };
+
         if time < self.delay && !done {
             progress = 0.0;
         }
+
         let odd = !iteration.is_multiple_of(2);
         let reverse = odd && self.mode == RepeatMode::Reverse;
+
         if reverse {
             progress = 1.0 - progress;
         }
+
         let mut from = origin.target().inherit(
             self.clip
                 .frames
@@ -231,24 +247,30 @@ impl Animation {
                 .and_then(|f| f.target)
                 .unwrap_or_default(),
         );
+
         from = self.clip.frames[0].target.unwrap_or(from).inherit(from);
         let first = from;
+
         let final_target = self.clip.frames.iter().fold(from, |previous, frame| {
             frame.target.unwrap_or(previous).inherit(previous)
         });
+
         if let Some(spring) = self.clip.spring {
             let (start, end) = if odd && self.mode == RepeatMode::Mirror {
                 (final_target, first)
             } else {
                 (first, final_target)
             };
+
             let velocity = if iteration == 0 {
                 origin_velocities(origin)
             } else {
                 [0.0; 6]
             };
+
             let mut values = [0.0; 6];
             let mut velocities = [0.0; 6];
+
             for ix in 0..6 {
                 let (v, speed, _) = sample_transition(
                     start.values()[ix],
@@ -257,6 +279,7 @@ impl Animation {
                     Transition::Spring(spring),
                     progress * duration,
                 );
+
                 values[ix] = if progress == 0.0 {
                     start.values()[ix]
                 } else if progress == 1.0 {
@@ -272,6 +295,7 @@ impl Animation {
                     speed
                 };
             }
+
             return (
                 Frame::animated(
                     Target::from_values(values, start.mask() | end.mask() | 7),
@@ -283,30 +307,38 @@ impl Animation {
                 done,
             );
         }
+
         let mirrored = odd && self.mode == RepeatMode::Mirror;
         let sample_progress = if mirrored { 1.0 - progress } else { progress };
+
         let upper = self
             .clip
             .frames
             .partition_point(|frame| frame.at < sample_progress)
             .clamp(1, self.clip.frames.len() - 1);
+
         let mut a = first;
+
         for frame in self.clip.frames.iter().take(upper).skip(1) {
             a = frame.target.unwrap_or(a).inherit(a);
         }
+
         let mut b = self.clip.frames[upper].target.unwrap_or(a).inherit(a);
         let lo = self.clip.frames[upper - 1].at;
         let hi = self.clip.frames[upper].at;
         let mut u = (sample_progress - lo) / (hi - lo);
+
         if mirrored {
             std::mem::swap(&mut a, &mut b);
             u = 1.0 - u;
         }
+
         let span = (hi - lo) * duration;
         let easing = self.clip.frames[upper].easing;
         let (weight, derivative) = easing.sample(u.clamp(0.0, 1.0));
         let av = a.values();
         let bv = b.values();
+
         let values = std::array::from_fn(|ix| {
             if u <= 0.0 {
                 av[ix]
@@ -316,6 +348,7 @@ impl Animation {
                 crate::value::finite(av[ix] + (bv[ix] - av[ix]) * weight)
             }
         });
+
         let velocity = std::array::from_fn(|ix| {
             if done || time < self.delay || local >= duration || span == 0.0 {
                 0.0
@@ -325,6 +358,7 @@ impl Animation {
                 )
             }
         });
+
         (
             Frame::animated(
                 Target::from_values(values, a.mask() | b.mask() | 7),
@@ -340,6 +374,7 @@ impl Animation {
 fn origin_velocities(frame: Frame) -> [f64; 6] {
     let basic = frame.velocity();
     let layout = frame.layout_velocity();
+
     [
         basic[0],
         basic[1],
@@ -374,6 +409,7 @@ impl Playback {
     /// Virtual playhead at a monotonic real timestamp. Backward real timestamps are held.
     pub fn time(&mut self, now: Duration) -> Duration {
         let now = now.max(self.last);
+
         self.last = now;
         let seconds = self.offset
             + if self.paused {
@@ -381,6 +417,7 @@ impl Playback {
             } else {
                 now.saturating_sub(self.anchor).as_secs_f64() * self.speed
             };
+
         Duration::try_from_secs_f64(seconds.max(0.0)).unwrap_or(Duration::MAX)
     }
     /// Freezes at the current playhead.
@@ -407,9 +444,11 @@ impl Playback {
         if !speed.is_finite() {
             return Err(AnimationError::Speed);
         }
+
         self.offset = self.time(now).as_secs_f64();
         self.anchor = now.max(self.last).max(self.anchor);
         self.speed = speed;
+
         Ok(())
     }
     /// Whether this clock advances.
@@ -459,11 +498,13 @@ impl AnimationState {
                 let frame = old
                     .resolve(self.clock.time(now), self.origin, self.force_end)
                     .0;
+
                 let factor = if self.clock.is_playing() {
                     self.clock.speed
                 } else {
                     0.0
                 };
+
                 self.current = Frame::animated(
                     frame.target(),
                     origin_velocities(frame).map(|v| v * factor),
@@ -471,25 +512,32 @@ impl AnimationState {
                     false,
                 );
             }
+
             self.origin = self.current;
             let first = self.clip.is_none();
+
             self.clip = Some(animation.clone());
+
             if first {
                 self.clock.anchor = now.max(self.clock.last);
                 self.clock.last = self.clock.anchor;
             } else {
                 self.clock.seek(Duration::ZERO, now);
             }
+
             self.complete = false;
+
             if !first {
                 self.force_end = false;
             }
         }
+
         self.force_end |= reduced_motion;
         let time = self.clock.time(now);
         let (frame, iteration, finished) = animation.resolve(time, self.origin, self.force_end);
         let backward_end = self.clock.speed < 0.0 && time.is_zero();
         let complete = finished || backward_end;
+
         self.current = Frame::animated(
             frame.target(),
             origin_velocities(frame).map(|v| {
@@ -504,6 +552,7 @@ impl AnimationState {
         );
         self.complete = complete;
         self.iteration = iteration;
+
         self.current
     }
     /// Pauses playback; call the host's notify method after controls change.
@@ -567,11 +616,13 @@ pub fn stagger(
     if count == 0 || ix >= count {
         return Err(AnimationError::Index);
     }
+
     let distance = match from {
         StaggerFrom::Start => ix as f64,
         StaggerFrom::End => (count - 1 - ix) as f64,
         StaggerFrom::Center => (ix as f64 - (count - 1) as f64 / 2.0).abs(),
     };
+
     Ok(Duration::try_from_secs_f64(step.as_secs_f64() * distance).unwrap_or(Duration::MAX))
 }
 
@@ -597,8 +648,10 @@ impl Timeline {
         let end = animation
             .duration()
             .map(|duration| at.saturating_add(duration));
+
         self.cursor = end;
         let mut state = AnimationState::default();
+
         state.sample(&animation, Duration::ZERO, false);
         self.frames.push(Frame::at(Target::default()));
         self.tracks.push(Track {
@@ -606,6 +659,7 @@ impl Timeline {
             animation,
             state,
         });
+
         self.tracks.len() - 1
     }
     /// Appends after the previously inserted track; an infinite predecessor is rejected.
@@ -615,20 +669,25 @@ impl Timeline {
         } else {
             self.cursor.ok_or(AnimationError::InfiniteSequence)?
         };
+
         Ok(self.at(at, animation))
     }
     /// Records a label at the current finite sequence cursor.
     pub fn label(&mut self, name: impl Into<String>) -> Result<(), AnimationError> {
         let name = name.into();
+
         if self.labels.iter().any(|(n, _)| *n == name) {
             return Err(AnimationError::Label);
         }
+
         let at = if self.tracks.is_empty() {
             Duration::ZERO
         } else {
             self.cursor.ok_or(AnimationError::InfiniteSequence)?
         };
+
         self.labels.push((name, at));
+
         Ok(())
     }
     /// Adds an overlapping track relative to a previously recorded label.
@@ -644,12 +703,14 @@ impl Timeline {
             .find(|(n, _)| n == name)
             .ok_or(AnimationError::Label)?
             .1;
+
         Ok(self.at(at.saturating_add(offset), animation))
     }
     /// Starts this timeline's clock at zero at an application timestamp.
     pub fn restart(&mut self, now: Duration) {
         self.clock.seek(Duration::ZERO, now);
         self.clock.play(now);
+
         for track in &mut self.tracks {
             track.state.restart(now);
         }
@@ -674,12 +735,16 @@ impl Timeline {
     pub fn sample(&mut self, now: Duration, reduced_motion: bool) -> &[Frame] {
         let playhead = self.clock.time(now);
         let playing = self.clock.is_playing() && !(self.clock.speed < 0.0 && playhead.is_zero());
+
         self.active = false;
+
         for (track, output) in self.tracks.iter_mut().zip(&mut self.frames) {
             let local = playhead.saturating_sub(track.at);
+
             track.state.seek(local, now);
             let frame = track.state.sample(&track.animation, now, reduced_motion);
             let pending = playhead < track.at && !reduced_motion;
+
             self.active |= (pending || frame.is_animating()) && playing;
             *output = Frame::animated(
                 frame.target(),
@@ -694,6 +759,7 @@ impl Timeline {
                 !pending && frame.just_completed(),
             );
         }
+
         &self.frames
     }
     /// Whether sampled tracks or future tracks require another frame.

@@ -69,6 +69,7 @@ impl Render for Demo {
         } else {
             Transition::default()
         };
+
         let mut board = div()
             .id("board")
             .flex()
@@ -83,10 +84,13 @@ impl Render for Demo {
             .border_color(rgb(0x414757))
             .rounded_lg()
             .when(self.end, |board| board.justify_end());
+
         let count = if self.extra { 7 } else { 6 };
+
         for ix in 0..count {
             let id = if self.reverse { count - 1 - ix } else { ix };
             let label = format!("Card {}", id + 1);
+
             let card = div()
                 .id(("card", id))
                 .role(Role::Button)
@@ -118,6 +122,7 @@ impl Render for Demo {
                     cx.notify();
                 }))
                 .child(label);
+
             board = board.child(
                 self.group
                     .position(("position", id), card)
@@ -125,6 +130,7 @@ impl Render for Demo {
                     .enabled(self.enabled),
             );
         }
+
         let controls = div()
             .flex()
             .gap_3()
@@ -144,6 +150,7 @@ impl Render for Demo {
                 button("align", "Align")
                     .on_click(|_, w, cx| w.dispatch_action(Box::new(Align), cx)),
             );
+
         let status = format!(
             "{} cards · {} · {} · reduced {} · {} clicks · selected {}",
             count,
@@ -158,6 +165,7 @@ impl Render for Demo {
             self.selected
                 .map_or("none".into(), |id| (id + 1).to_string())
         );
+
         let root = div()
             .id("layout-demo")
             .track_focus(&self.root)
@@ -181,10 +189,13 @@ impl Render for Demo {
                 if this.extra && this.cards[6].is_focused(window) {
                     this.root.focus(window, cx);
                 }
+
                 this.extra = !this.extra;
+
                 if !this.extra && this.selected == Some(6) {
                     this.selected = None;
                 }
+
                 cx.notify();
             }))
             .on_action(cx.listener(|this, _: &Align, _, cx| {
@@ -197,6 +208,7 @@ impl Render for Demo {
             }))
             .on_action(cx.listener(|_, _: &Reduced, _, cx| {
                 let value = !cx.reduce_motion();
+
                 cx.set_reduce_motion(value);
                 cx.notify();
             }))
@@ -207,6 +219,7 @@ impl Render for Demo {
             .on_action(|_: &Next, window, cx| window.focus_next(cx))
             .on_action(|_: &Previous, window, cx| window.focus_prev(cx))
             .on_action(|_: &Close, window, _| window.remove_window());
+
         root.child(div().text_2xl().child("Automatic layout positions"))
             .child("C compact · R reorder · A insert/remove · J align · T timing · M reduce · B on/off")
             .child(controls)
@@ -224,6 +237,7 @@ fn main() {
         } else {
             "ctrl"
         };
+
         cx.on_action(|_: &Quit, cx| cx.quit());
         cx.bind_keys([
             KeyBinding::new("c", Compact, None),
@@ -253,6 +267,7 @@ fn main() {
         ]);
         cx.on_window_closed(|cx, _| cx.quit()).detach();
         let bounds = Bounds::centered(None, size(px(880.), px(800.)), cx);
+
         let window = cx
             .open_window(
                 WindowOptions {
@@ -267,7 +282,9 @@ fn main() {
                 |window, cx| {
                     cx.new(|cx| {
                         let root = cx.focus_handle();
+
                         root.focus(window, cx);
+
                         Demo {
                             group: LayoutGroup::default(),
                             root,
@@ -285,6 +302,7 @@ fn main() {
                 },
             )
             .expect("open layout demo");
+
         window
             .update(cx, |_, window, _| window.activate_window())
             .expect("layout demo remains open");

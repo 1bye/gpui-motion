@@ -78,6 +78,7 @@ struct Probe {
 
 fn percentile(values: &mut [f64], fraction: f64) -> f64 {
     values.sort_by(f64::total_cmp);
+
     values[((values.len() - 1) as f64 * fraction).round() as usize]
 }
 
@@ -85,6 +86,7 @@ impl Render for Probe {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let now = Instant::now();
         let elapsed = now.duration_since(self.started);
+
         // SVG first use may initialize font fallback and raster caches.
         let warmup = if matches!(
             self.mode,
@@ -94,9 +96,11 @@ impl Render for Probe {
         } else {
             1
         };
+
         let measuring = elapsed >= Duration::from_secs(warmup);
 
         let active = window.is_window_active();
+
         if measuring && !active {
             self.inactive_frames += 1;
         }
@@ -105,11 +109,13 @@ impl Render for Probe {
             && measuring
         {
             self.intervals_ms.push((now - last).as_secs_f64() * 1000.0);
+
             if active && self.was_active {
                 self.active_intervals_ms
                     .push((now - last).as_secs_f64() * 1000.0);
             }
         }
+
         self.was_active = active;
 
         if elapsed >= Duration::from_secs(self.seconds + warmup) {
@@ -129,11 +135,13 @@ impl Render for Probe {
             let build_p50 = percentile(&mut self.construction_ms, 0.5);
             let build_p95 = percentile(&mut self.construction_ms, 0.95);
             let active_samples = self.active_intervals_ms.len();
+
             let active_p95 = if active_samples > 0 {
                 format!("{:.3}", percentile(&mut self.active_intervals_ms, 0.95))
             } else {
                 "null".into()
             };
+
             eprintln!("GPUI_EVAL_MODE {}", self.mode.name());
             eprintln!(
                 "GPUI_EVAL {{\"cards\":{},\"seconds\":{},\"frames\":{},\"inactive_frames\":{},\"active_samples\":{},\"active_interval_p95_ms\":{},\"interval_p50_ms\":{:.3},\"interval_p95_ms\":{:.3},\"interval_p99_ms\":{:.3},\"interval_max_ms\":{:.3},\"construction_p50_ms\":{:.3},\"construction_p95_ms\":{:.3}}}",
@@ -156,12 +164,15 @@ impl Render for Probe {
         }
 
         let offset = (elapsed.as_secs_f32() * 3.0).sin() * 3.0;
+
         let mut scene = div()
             .size_full()
             .relative()
             .bg(rgb(0x18181b))
             .text_color(rgb(0xf4f4f5));
+
         let expanded = (elapsed.as_millis() / 200).is_multiple_of(2);
+
         let layout = Motion::new(
             Target::default()
                 .width(if expanded { 42.0 } else { 30.0 })
@@ -174,6 +185,7 @@ impl Render for Probe {
                 .height(26.0)
                 .border_radius(8.0),
         );
+
         let shared = match self.mode {
             Mode::LayoutBaseline => Some(self.shared.sample(layout, elapsed, false)),
             Mode::KeyframesBaseline => Some(self.shared_clip.sample(&self.clip, elapsed, false)),
@@ -186,9 +198,12 @@ impl Render for Probe {
                 .rotate_degrees(if expanded { 30. } else { -30. }),
         )
         .initial(SvgTarget::default());
+
         let shared_svg = matches!(self.mode, Mode::SvgBaseline)
             .then(|| self.shared_svg.sample(svg_motion, elapsed, false));
+
         let position_mode = matches!(self.mode, Mode::PositionBaseline | Mode::Position);
+
         if position_mode {
             let mut board = div()
                 .m(px(16.))
@@ -196,8 +211,10 @@ impl Render for Probe {
                 .flex()
                 .flex_wrap()
                 .gap(px(3.));
+
             for ix in 0..self.count {
                 let id = if expanded { self.count - 1 - ix } else { ix };
+
                 let card = div()
                     .id(("card", id))
                     .w(px(30.))
@@ -206,6 +223,7 @@ impl Render for Probe {
                     .bg(rgb(0x303a50))
                     .text_xs()
                     .child(id.to_string());
+
                 board = board.child(if matches!(self.mode, Mode::Position) {
                     self.positions
                         .position(("position", id), card)
@@ -214,12 +232,15 @@ impl Render for Probe {
                     card.into_any_element()
                 });
             }
+
             scene = scene.child(board);
         }
+
         for ix in 0..if position_mode { 0 } else { self.count } {
             if matches!(self.mode, Mode::SvgBaseline | Mode::Svg) {
                 let frame =
                     shared_svg.unwrap_or_else(|| self.svgs[ix].sample(svg_motion, elapsed, false));
+
                 scene = scene.child(
                     div()
                         .absolute()
@@ -241,12 +262,14 @@ impl Render for Probe {
                 );
                 continue;
             }
+
             let offset = if matches!(self.mode, Mode::Motion) {
                 let destination = if (elapsed.as_millis() / 200).is_multiple_of(2) {
                     3.0
                 } else {
                     -3.0
                 };
+
                 self.states[ix]
                     .sample(
                         Motion::new(Target::default().x(destination)).initial(Target::default()),
@@ -258,6 +281,7 @@ impl Render for Probe {
             } else {
                 offset
             };
+
             if self.mode.has_layout() {
                 let frame = shared.unwrap_or_else(|| {
                     if matches!(self.mode, Mode::Keyframes) {
@@ -266,6 +290,7 @@ impl Render for Probe {
                         self.states[ix].sample(layout, elapsed, false)
                     }
                 });
+
                 scene = scene.child(
                     div()
                         .absolute()
@@ -279,6 +304,7 @@ impl Render for Probe {
                 );
                 continue;
             }
+
             scene = scene.child(
                 div()
                     .absolute()
@@ -306,6 +332,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut args = std::env::args().skip(1);
     let count: usize = args.next().unwrap_or_else(|| "400".into()).parse()?;
     let seconds: u64 = args.next().unwrap_or_else(|| "8".into()).parse()?;
+
     let mode = match args.next().as_deref().unwrap_or("baseline") {
         "baseline" => Mode::Baseline,
         "motion" => Mode::Motion,
@@ -319,15 +346,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "position" => Mode::Position,
         _ => return Err("mode must be baseline, motion, layout-baseline, layout, keyframes-baseline, keyframes, svg-baseline, svg, position-baseline, or position".into()),
     };
+
     if count > 400 || !(1..=60).contains(&seconds) || args.next().is_some() {
         return Err("usage: gpui_eval [cards: 0..400] [seconds: 1..60] [baseline|motion|layout-baseline|layout|keyframes-baseline|keyframes|svg-baseline|svg|position-baseline|position]".into());
     }
 
     let assets = common::SvgAsset(include_bytes!("assets/motion.svg"));
+
     gpui_platform::application()
         .with_assets(assets)
         .run(move |cx: &mut App| {
             let bounds = Bounds::centered(None, size(px(960.0), px(640.0)), cx);
+
             let window = cx
                 .open_window(
                     WindowOptions {
@@ -376,6 +406,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     },
                 )
                 .expect("failed to open evaluation window");
+
             window
                 .update(cx, |_, window, _| window.activate_window())
                 .expect("evaluation window remains open");

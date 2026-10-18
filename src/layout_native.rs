@@ -59,12 +59,14 @@ impl<E> LayoutPositionElement<E> {
     /// Chooses the positional spring/tween/instant transition.
     pub fn transition(mut self, transition: Transition) -> Self {
         self.transition = transition;
+
         self
     }
     /// Disables interpolation without changing IDs or coordinate scopes. Disabled
     /// elements follow layout immediately and do not schedule animation frames.
     pub fn enabled(mut self, enabled: bool) -> Self {
         self.enabled = enabled;
+
         self
     }
 }
@@ -108,7 +110,9 @@ impl<E: IntoElement + 'static> Element for LayoutPositionElement<E> {
             .take()
             .expect("layout requested once")
             .into_any_element();
+
         let layout = child.request_layout(window, cx);
+
         (layout, child)
     }
     fn prepaint(
@@ -127,6 +131,7 @@ impl<E: IntoElement + 'static> Element for LayoutPositionElement<E> {
         let relative = std::array::from_fn(|i| origin[i] - parent[i]);
         let now = cx.background_executor().now();
         let reduced = cx.reduce_motion() || !self.enabled;
+
         let frame = window.with_element_state(
             id.expect("position wrapper has an ID"),
             |state: Option<RetainedPosition>, window| {
@@ -134,26 +139,33 @@ impl<E: IntoElement + 'static> Element for LayoutPositionElement<E> {
                     state: LayoutPositionState::default(),
                     epoch: now,
                 });
+
                 let frame = retained.state.sample(
                     relative,
                     self.transition,
                     now.saturating_duration_since(retained.epoch),
                     reduced,
                 );
+
                 if frame.is_animating() {
                     window.request_animation_frame();
                 }
+
                 (frame, retained)
             },
         );
+
         let ancestor = self.group.ancestor.clone();
+
         let _scope = AncestorScope {
             previous: ancestor.replace(Some(origin)),
             ancestor,
         };
+
         let [x, y] = frame
             .offset()
             .map(|v| v.clamp(f64::from(f32::MIN), f64::from(f32::MAX)) as f32);
+
         window.with_element_offset(point(px(x), px(y)), |window| {
             child.prepaint(window, cx);
         });

@@ -45,6 +45,7 @@ fn label(text: impl Into<SharedString>) -> Div {
 }
 fn status(id: &'static str, text: impl Into<SharedString>) -> Stateful<Div> {
     let text = text.into();
+
     div()
         .id(id)
         .role(Role::Label)
@@ -84,8 +85,10 @@ struct Gallery {
 impl Gallery {
     fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
         let focus = cx.focus_handle();
+
         focus.focus(window, cx);
         let mut timeline = Timeline::default();
+
         for i in 0..3 {
             timeline.at(
                 stagger(ms(160), i, 3, StaggerFrom::Start).unwrap(),
@@ -113,8 +116,10 @@ impl Gallery {
                 .unwrap(),
             );
         }
+
         timeline.restart(Duration::ZERO);
         let mut group = PresenceGroup::new(PresenceMode::Wait);
+
         group.update([0]).unwrap();
         let activation = cx.observe_window_activation(window, |this, window, cx| {
             if !window.is_window_active() {
@@ -124,6 +129,7 @@ impl Gallery {
                 cx.notify();
             }
         });
+
         Self {
             started: Instant::now(),
             focus,
@@ -164,7 +170,9 @@ impl Gallery {
     }
     fn toggle_pause(&mut self) {
         let now = self.started.elapsed();
+
         self.paused = !self.paused;
+
         if self.paused {
             self.timeline.pause(now);
             self.clip_state.pause(now);
@@ -175,6 +183,7 @@ impl Gallery {
     }
     fn restart(&mut self) {
         let now = self.started.elapsed();
+
         self.timeline.restart(now);
         self.clip_state.restart(now);
         self.paused = false;
@@ -198,20 +207,27 @@ impl Render for Gallery {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let now = self.started.elapsed();
         let reduced = cx.reduce_motion();
+
         let frames = {
             let f = self.timeline.sample(now, reduced);
+
             [f[0], f[1], f[2]]
         };
+
         let clip = self.clip_state.sample(&self.clip, now, reduced);
+
         self.interaction.focused = self.gesture_focus.is_focused(window);
         let base = self.variants.get(&self.variant).unwrap();
+
         let target = GestureTargets::default()
             .while_hover(Target::default().border_radius(28.))
             .while_press(Target::default().y(6.).opacity(0.6))
             .while_focus(Target::default().border_radius(4.))
             .resolve(base.target(), self.interaction);
+
         // The base declaration supplies policy; gesture targets replace only explicitly named properties.
         let gesture = self.gesture.sample(base.with_target(target), now, reduced);
+
         let (color, color_active) = self.color.sample(
             Color::rgb(if self.interaction.pressed {
                 0xf0b87c
@@ -224,9 +240,11 @@ impl Render for Gallery {
             now,
             reduced,
         );
+
         let drag = self.drag.sample(now, reduced);
         let offset = -f64::from(f32::from(self.scroll.offset().y));
         let progress = scroll_progress(offset, 640., 128.);
+
         self.view
             .update([0., 0., 700., 128.], [0., 320. - offset, 700., 32.]);
         let view = self.view_motion.sample(
@@ -235,11 +253,14 @@ impl Render for Gallery {
             now,
             reduced,
         );
+
         let mut presence = div().flex().gap_3().h(px(48.));
         let mut finished = None;
         let mut presence_active = false;
+
         for child in self.group.children() {
             let key = *child.key();
+
             let f = self.children[key].sample(
                 Motion::new(Target::default().opacity(1.))
                     .initial(Target::default().opacity(0.).x(20.))
@@ -248,10 +269,13 @@ impl Render for Gallery {
                 now,
                 reduced,
             );
+
             presence_active |= f.is_animating();
+
             if !f.is_mounted() {
                 finished = Some(key);
             }
+
             presence = presence.child(f.render(|f| {
                 f.apply(
                     div()
@@ -264,20 +288,25 @@ impl Render for Gallery {
                 )
             }));
         }
+
         if let Some(key) = finished {
             self.group.finish_exit(&key);
             window.request_animation_frame();
         }
+
         let mut order = div().relative().h(px(44.));
         let mut reorder_active = false;
+
         for id in 0..3 {
             let ix = self.order.iter().position(|v| *v == id).unwrap();
+
             let f = self.reorder[id].sample(
                 Motion::new(Target::default().x(ix as f32 * 110.))
                     .initial(Target::default().x(id as f32 * 110.)),
                 now,
                 reduced,
             );
+
             reorder_active |= f.is_animating();
             order = order.child(
                 div().absolute().child(
@@ -294,6 +323,7 @@ impl Render for Gallery {
                 ),
             );
         }
+
         if self.timeline.is_animating()
             || clip.is_animating()
             || color_active
@@ -305,8 +335,10 @@ impl Render for Gallery {
         {
             window.request_animation_frame();
         }
+
         let move_view = cx.entity().downgrade();
         let up_view = cx.entity().downgrade();
+
         div()
             .id("gallery")
             .track_focus(&self.focus)
@@ -346,9 +378,11 @@ impl Render for Gallery {
                 if phase.bubble() && event.button == MouseButton::Left {
                     let _ = up_view.update(cx, |this, cx| {
                         this.interaction.pressed = false;
+
                         if this.drag.is_dragging() {
                             this.drag.end(this.started.elapsed());
                         }
+
                         cx.notify();
                     });
                 }
@@ -357,9 +391,11 @@ impl Render for Gallery {
             .on_key_down(cx.listener(|this, event: &gpui::KeyDownEvent, window, cx| {
                 let key = event.keystroke.key.as_str();
                 let now = this.started.elapsed();
+
                 match key {
                     "tab" => {
                         this.interaction.pressed = false;
+
                         if event.keystroke.modifiers.shift {
                             window.focus_prev(cx);
                         } else {
@@ -384,6 +420,7 @@ impl Render for Gallery {
                     "i" => this.reorder(),
                     "m" => {
                         let reduced = !cx.reduce_motion();
+
                         cx.set_reduce_motion(reduced);
                     }
                     "escape" => {
@@ -406,6 +443,7 @@ impl Render for Gallery {
                     }
                     _ => return,
                 }
+
                 cx.notify();
             }))
             .on_key_up(cx.listener(|this, event: &gpui::KeyUpEvent, _, cx| {
@@ -634,6 +672,7 @@ fn main() {
         } else {
             "ctrl"
         };
+
         cx.bind_keys([
             gpui::KeyBinding::new(&format!("{modifier}-q"), Quit, None),
             gpui::KeyBinding::new(&format!("{modifier}-w"), Close, None),
@@ -648,6 +687,7 @@ fn main() {
         }]);
         cx.on_window_closed(|cx, _| cx.quit()).detach();
         let bounds = Bounds::centered(None, size(px(880.), px(900.)), cx);
+
         let handle = cx
             .open_window(
                 WindowOptions {
@@ -662,6 +702,7 @@ fn main() {
                 |window, cx| cx.new(|cx| Gallery::new(window, cx)),
             )
             .expect("open motion gallery");
+
         handle
             .update(cx, |_, window, _| window.activate_window())
             .expect("gallery remains open");

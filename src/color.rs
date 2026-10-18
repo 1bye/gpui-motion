@@ -20,6 +20,7 @@ impl Color {
                 ((v + 0.055) / 1.055).powf(2.4)
             }
         };
+
         Self {
             linear: [linear(r), linear(g), linear(b), a],
         }
@@ -37,12 +38,14 @@ impl Color {
     pub fn channels(self) -> [f32; 4] {
         let srgb = |v: f64| {
             let v = v.clamp(0.0, 1.0);
+
             if v <= 0.0031308 {
                 12.92 * v
             } else {
                 1.055 * v.powf(1.0 / 2.4) - 0.055
             }
         };
+
         [
             srgb(self.linear[0]) as f32,
             srgb(self.linear[1]) as f32,
@@ -54,6 +57,7 @@ impl Color {
     pub fn mix(self, other: Self, progress: f64) -> Self {
         assert!(progress.is_finite(), "invalid color progress");
         let t = progress.clamp(0.0, 1.0);
+
         Self {
             linear: std::array::from_fn(|ix| {
                 self.linear[ix] + (other.linear[ix] - self.linear[ix]) * t
@@ -82,12 +86,16 @@ impl ColorState {
         reduced_motion: bool,
     ) -> (Color, bool) {
         let mut active = false;
+
         let linear = std::array::from_fn(|ix| {
             self.channels[ix].animate(color.linear[ix], transition, now);
             let frame = self.channels[ix].sample(now, reduced_motion);
+
             active |= frame.is_animating();
+
             frame.value()
         });
+
         (Color { linear }, active)
     }
 }

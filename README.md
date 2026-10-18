@@ -129,6 +129,7 @@ let start = Target::default()
     .x(0.0)
     .width(120.0)
     .height(100.0);
+
 let destination = Target::default()
     .x(120.0)
     .width(240.0)
@@ -474,6 +475,7 @@ let variants = Variants::new([
 let expanded = variants.get(&"expanded").expect("known variant");
 
 let mut interaction = Interaction::default();
+
 interaction.hovered = true;
 
 let gestures = GestureTargets::default()

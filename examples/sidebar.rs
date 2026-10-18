@@ -63,6 +63,7 @@ impl Palette {
 
 fn button(id: &'static str, label: impl Into<SharedString>, enabled: bool) -> Stateful<Div> {
     let label = label.into();
+
     div()
         .id(id)
         .role(Role::Button)
@@ -147,6 +148,7 @@ impl SidebarApp {
         if !open && self.sidebar_focus.contains_focused(window, cx) {
             self.toggle_focus.focus(window, cx);
         }
+
         self.open = open;
         cx.notify();
     }
@@ -179,12 +181,14 @@ impl SidebarApp {
                     .text_color(Palette::muted())
                     .child("Workspace"),
             );
+
         for (id, section) in [
             ("overview", Section::Overview),
             ("projects", Section::Projects),
             ("archive", Section::Archive),
         ] {
             let selected = self.section == section;
+
             navigation = navigation.child(
                 button(id, section.title(), self.open)
                     .aria_selected(selected)
@@ -201,6 +205,7 @@ impl SidebarApp {
                     }),
             );
         }
+
         navigation.child(div().flex_1()).child(
             div()
                 .text_sm()
@@ -213,11 +218,13 @@ impl SidebarApp {
 impl Render for SidebarApp {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let hidden = Target::default().width(0.0).opacity(0.0);
+
         let transition = if self.tween {
             Transition::Tween(Duration::from_millis(300), Easing::EaseInOut)
         } else {
             Transition::Spring(self.spring)
         };
+
         // Keep declaring the sidebar while closed: render() removes it after exit.
         let frame = self.sidebar.frame(
             Motion::new(Target::default().width(SIDEBAR_WIDTH))
@@ -228,14 +235,17 @@ impl Render for SidebarApp {
             window,
             cx,
         );
+
         let status = format!(
             "Sidebar {:?} · {} · Reduced motion {}",
             frame.presence(),
             if self.tween { "Tween" } else { "Spring" },
             if cx.reduce_motion() { "on" } else { "off" }
         );
+
         let section = self.section;
         let mut notes = div().flex().flex_col().gap_3();
+
         for (title, description) in section.notes() {
             notes = notes.child(
                 div()
@@ -262,7 +272,10 @@ impl Render for SidebarApp {
             .on_action(cx.listener(|this, _: &HideSidebar, window, cx| this.set_open(false, window, cx)))
             .on_action(cx.listener(|this, _: &ToggleTransition, _, cx| { this.tween = !this.tween; cx.notify(); }))
             .on_action(cx.listener(|_, _: &ToggleReducedMotion, _, cx| {
-                let reduced = !cx.reduce_motion(); cx.set_reduce_motion(reduced); cx.notify();
+                let reduced = !cx.reduce_motion();
+
+                cx.set_reduce_motion(reduced);
+                cx.notify();
             }))
             .on_action(|_: &FocusNext, window, cx| window.focus_next(cx))
             .on_action(|_: &FocusPrevious, window, cx| window.focus_prev(cx))
@@ -299,6 +312,7 @@ fn main() {
         } else {
             "ctrl"
         };
+
         cx.bind_keys([
             KeyBinding::new(&format!("{command}-b"), ToggleSidebar, None),
             KeyBinding::new("escape", HideSidebar, None),
@@ -325,6 +339,7 @@ fn main() {
         })
         .detach();
         let bounds = Bounds::centered(None, size(px(1040.0), px(720.0)), cx);
+
         let handle = cx
             .open_window(
                 WindowOptions {
@@ -340,7 +355,9 @@ fn main() {
                     cx.new(|cx| {
                         let root_focus = cx.focus_handle();
                         let toggle_focus = cx.focus_handle().tab_stop(true);
+
                         toggle_focus.focus(window, cx);
+
                         SidebarApp {
                             sidebar: MotionState::default(),
                             root_focus,
@@ -356,6 +373,7 @@ fn main() {
                 },
             )
             .expect("open sidebar example");
+
         handle
             .update(cx, |_, window, _| window.activate_window())
             .expect("sidebar window is open");

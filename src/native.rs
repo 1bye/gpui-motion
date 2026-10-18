@@ -21,9 +21,11 @@ impl MotionState {
     /// ```
     pub fn frame(&mut self, motion: Motion, window: &mut Window, cx: &App) -> Frame {
         let frame = self.sample(motion, self.epoch.elapsed(), cx.reduce_motion());
+
         if frame.is_animating() {
             window.request_animation_frame();
         }
+
         frame
     }
 }
@@ -39,12 +41,15 @@ impl Frame {
     pub fn apply<E: Styled>(self, element: E) -> E {
         let target = self.target();
         let mut element = element;
+
         if let Some(width) = target.width_px() {
             element = element.w(px(width));
         }
+
         if let Some(height) = target.height_px() {
             element = element.h(px(height));
         }
+
         if let Some(radius) = target.border_radius_px() {
             element = element.rounded(px(radius));
         }
@@ -79,9 +84,11 @@ impl crate::AnimationState {
     /// Samples native time and requests frames only while this prepared clip is playing.
     pub fn frame(&mut self, animation: &crate::Animation, window: &mut Window, cx: &App) -> Frame {
         let frame = self.sample(animation, self.epoch.elapsed(), cx.reduce_motion());
+
         if frame.is_animating() {
             window.request_animation_frame();
         }
+
         frame
     }
 }
@@ -90,6 +97,7 @@ impl crate::Color {
     /// Converts the sampled color to GPUI's sRGB representation.
     pub fn to_rgba(self) -> gpui::Rgba {
         let [r, g, b, a] = self.channels();
+
         gpui::Rgba::new(r, g, b, a)
     }
 }
@@ -104,9 +112,11 @@ impl crate::SvgMotionState {
         cx: &App,
     ) -> crate::SvgFrame {
         let frame = self.sample(motion, self.epoch.elapsed(), cx.reduce_motion());
+
         if frame.is_animating() {
             window.request_animation_frame();
         }
+
         frame
     }
 }
@@ -117,11 +127,13 @@ impl crate::SvgFrame {
     /// unwrapped presentation and velocity. This replaces any existing SVG transform.
     pub fn transformation(self) -> gpui::Transformation {
         let [x, y] = self.target().scale_factors();
+
         let angle = self
             .target()
             .rotation_degrees()
             .rem_euclid(360.0)
             .to_radians() as f32;
+
         gpui::Transformation::scale(gpui::size(x, y))
             .with_rotation(gpui::radians(angle))
             .with_translation(gpui::point(
@@ -151,16 +163,19 @@ impl crate::SvgFrame {
             "SVG bounds and pivot must be finite with non-negative size"
         );
         let [sx, sy] = self.target().scale_factors().map(f64::from);
+
         let angle = self
             .target()
             .rotation_degrees()
             .rem_euclid(360.)
             .to_radians();
+
         let (sin, cos) = angle.sin_cos();
         let dx = f64::from(pivot.x) - f64::from(bounds.width) * 0.5;
         let dy = f64::from(pivot.y) - f64::from(bounds.height) * 0.5;
         let [tx, ty] = self.target().translation().map(f64::from);
         let finite = |v: f64| px(v.clamp(f64::from(f32::MIN), f64::from(f32::MAX)) as f32);
+
         self.transformation().with_translation(gpui::point(
             finite(tx + dx - (cos * sx * dx - sin * sy * dy)),
             finite(ty + dy - (sin * sx * dx + cos * sy * dy)),

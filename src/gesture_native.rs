@@ -37,9 +37,11 @@ impl Data {
     }
     fn cancel(&mut self, cx: &App) {
         let now = self.now(cx);
+
         if let Some(drag) = &mut self.drag {
             drag.cancel(now);
         }
+
         self.pointer = false;
         self.key = None;
         self.interaction.pressed = false;
@@ -60,11 +62,13 @@ impl GestureState {
     /// Adds bounded native pointer/arrow-key dragging. Configure once in the view.
     pub fn with_drag(self, drag: Drag) -> Self {
         self.0.borrow_mut().drag = Some(drag);
+
         self
     }
     /// Enables automatically measured clipped viewport visibility. Configure once.
     pub fn in_view(self, amount: f64, once: bool) -> Self {
         self.0.borrow_mut().visibility = Some(InView::new(amount, once));
+
         self
     }
     /// Current resolved interaction flags, supplied automatically by the element.
@@ -82,6 +86,7 @@ impl GestureState {
     /// Cancels pointer/key state and bounded dragging, notifying the owning view.
     pub fn cancel(&self, cx: &mut App) {
         let mut data = self.0.borrow_mut();
+
         data.cancel(cx);
         data.notify(cx);
     }
@@ -131,6 +136,7 @@ impl GestureElement {
     /// using its CE version’s APIs. Visibility observation remains available.
     pub fn enabled(mut self, enabled: bool) -> Self {
         self.enabled = enabled;
+
         self
     }
 }
@@ -157,6 +163,7 @@ impl Element for GestureElement {
         cx: &mut App,
     ) -> (LayoutId, AnyElement) {
         let mut data = self.state.0.borrow_mut();
+
         data.owner = Some(w.current_view());
         data.epoch
             .get_or_insert_with(|| cx.background_executor().now());
@@ -165,38 +172,50 @@ impl Element for GestureElement {
             .get_or_insert_with(|| cx.focus_handle().tab_stop(true))
             .clone()
             .tab_stop(self.enabled);
+
         let focused = self.enabled && focus.is_focused(w);
+
         if !self.enabled
             || !w.is_window_active()
             || (!focused && (data.key.is_some() || data.pointer))
         {
             data.cancel(cx);
         }
+
         if !self.enabled || !w.is_window_active() {
             data.interaction.hovered = false;
         }
+
         data.interaction.focused = focused;
         let now = data.now(cx);
         let target = self.targets.resolve(self.motion.target(), data.interaction);
+
         let frame = data
             .motion
             .sample(self.motion.with_target(target), now, cx.reduce_motion());
+
         let mut target = frame.target();
         let mut active = frame.is_animating();
+
         if let Some(drag) = &mut data.drag {
             let offset = drag.sample(now, cx.reduce_motion());
+
             active |= offset.is_animating();
             let finite = |a: f32, b: f32| {
                 (f64::from(a) + f64::from(b)).clamp(f64::from(f32::MIN), f64::from(f32::MAX)) as f32
             };
+
             target = target
                 .x(finite(target.x_px(), offset.target().x_px()))
                 .y(finite(target.y_px(), offset.target().y_px()));
         }
+
         data.presented = target;
+
         if active {
             w.request_animation_frame();
         }
+
         let child = frame
             .apply(
                 self.child
@@ -207,9 +226,11 @@ impl Element for GestureElement {
             )
             .left(px(target.x_px()))
             .top(px(target.y_px()));
+
         drop(data);
         let mut child = child.into_any_element();
         let layout = child.request_layout(w, cx);
+
         (layout, child)
     }
     fn prepaint(
@@ -223,8 +244,10 @@ impl Element for GestureElement {
     ) -> Hitbox {
         let hitbox = w.insert_hitbox(bounds, HitboxBehavior::Normal);
         let mut data = self.state.0.borrow_mut();
+
         if let Some(visibility) = &mut data.visibility {
             let viewport = w.content_mask().bounds;
+
             let rect = |r: Bounds<Pixels>| {
                 [
                     f64::from(r.origin.x),
@@ -233,14 +256,18 @@ impl Element for GestureElement {
                     f64::from(r.size.height),
                 ]
             };
+
             if visibility.update(rect(viewport), rect(bounds)) {
                 data.interaction.in_view = visibility.is_visible();
                 let owner = data.owner.expect("owner");
+
                 w.defer(cx, move |_, cx| cx.notify(owner));
             }
         }
+
         drop(data);
         child.prepaint(w, cx);
+
         hitbox
     }
     fn paint(
@@ -255,24 +282,28 @@ impl Element for GestureElement {
     ) {
         if !self.enabled {
             let region = hitbox.clone();
+
             w.on_mouse_event(move |_: &MouseDownEvent, phase, w, cx| {
                 if phase == DispatchPhase::Capture && region.is_hovered(w) {
                     cx.stop_propagation();
                 }
             });
             let region = hitbox.clone();
+
             w.on_mouse_event(move |_: &MouseUpEvent, phase, w, cx| {
                 if phase == DispatchPhase::Capture && region.is_hovered(w) {
                     cx.stop_propagation();
                 }
             });
             let region = hitbox.clone();
+
             w.on_mouse_event(move |_: &MouseMoveEvent, phase, w, cx| {
                 if phase == DispatchPhase::Capture && region.is_hovered(w) {
                     cx.stop_propagation();
                 }
             });
             let focus = self.state.focus_handle();
+
             w.on_key_event(move |_: &KeyDownEvent, phase, w, cx| {
                 if phase == DispatchPhase::Capture
                     && focus.as_ref().is_some_and(|f| f.is_focused(w))
@@ -281,6 +312,7 @@ impl Element for GestureElement {
                 }
             });
             let focus = self.state.focus_handle();
+
             w.on_key_event(move |_: &KeyUpEvent, phase, w, cx| {
                 if phase == DispatchPhase::Capture
                     && focus.as_ref().is_some_and(|f| f.is_focused(w))
@@ -289,23 +321,29 @@ impl Element for GestureElement {
                 }
             });
             child.paint(w, cx);
+
             return;
         }
+
         let shared = self.state.0.clone();
         let region = hitbox.clone();
+
         w.on_mouse_event(move |event: &MouseDownEvent, phase, w, cx| {
             if phase == DispatchPhase::Bubble
                 && event.button == MouseButton::Left
                 && region.is_hovered(w)
             {
                 let mut data = shared.borrow_mut();
+
                 if data.pointer {
                     return;
                 }
+
                 data.pointer = true;
                 data.key = None;
                 data.interaction.pressed = true;
                 let now = data.now(cx);
+
                 if let Some(drag) = &mut data.drag {
                     drag.begin(
                         [f64::from(event.position.x), f64::from(event.position.y)],
@@ -314,24 +352,31 @@ impl Element for GestureElement {
                     data.interaction.dragging = true;
                     cx.stop_propagation();
                 }
+
                 if let Some(focus) = &data.focus {
                     focus.focus(w, cx);
                 }
+
                 data.notify(cx);
             }
         });
         let shared = self.state.0.clone();
         let region = hitbox.clone();
+
         w.on_mouse_event(move |event: &MouseMoveEvent, phase, w, cx| {
             if phase != DispatchPhase::Capture {
                 return;
             }
+
             let mut data = shared.borrow_mut();
             let hover = region.is_hovered(w);
             let changed = data.interaction.hovered != hover;
+
             data.interaction.hovered = hover;
+
             if data.pointer {
                 let now = data.now(cx);
+
                 if event.pressed_button != Some(MouseButton::Left) {
                     data.cancel(cx);
                 } else if let Some(drag) = &mut data.drag {
@@ -340,22 +385,28 @@ impl Element for GestureElement {
                         now,
                     );
                 }
+
                 data.notify(cx);
             } else if changed {
                 data.notify(cx);
             }
         });
         let shared = self.state.0.clone();
+
         w.on_mouse_event(move |event: &MouseUpEvent, phase, _, cx| {
             if phase == DispatchPhase::Capture && event.button == MouseButton::Left {
                 let mut data = shared.borrow_mut();
+
                 if !data.pointer {
                     return;
                 }
+
                 let now = data.now(cx);
+
                 if let Some(drag) = &mut data.drag {
                     drag.end(now);
                 }
+
                 data.pointer = false;
                 data.interaction.pressed = false;
                 data.interaction.dragging = false;
@@ -363,9 +414,11 @@ impl Element for GestureElement {
             }
         });
         let shared = self.state.0.clone();
+
         w.on_mouse_event(move |_: &MouseExitEvent, phase, _, cx| {
             if phase == DispatchPhase::Capture {
                 let mut data = shared.borrow_mut();
+
                 if data.interaction.hovered {
                     data.interaction.hovered = false;
                     data.notify(cx);
@@ -373,16 +426,21 @@ impl Element for GestureElement {
             }
         });
         let shared = self.state.0.clone();
+
         w.on_key_event(move |event: &KeyDownEvent, phase, w, cx| {
             if phase != DispatchPhase::Capture {
                 return;
             }
+
             let mut data = shared.borrow_mut();
+
             if !data.focus.as_ref().is_some_and(|f| f.is_focused(w)) {
                 return;
             }
+
             let key = event.keystroke.key.as_str();
             let now = data.now(cx);
+
             if key == "escape" {
                 data.cancel(cx);
                 data.notify(cx);
@@ -404,9 +462,11 @@ impl Element for GestureElement {
             }
         });
         let shared = self.state.0.clone();
+
         w.on_key_event(move |event: &KeyUpEvent, phase, _, cx| {
             if phase == DispatchPhase::Capture {
                 let mut data = shared.borrow_mut();
+
                 if data.key.as_deref() == Some(event.keystroke.key.as_str()) {
                     data.key = None;
                     data.interaction.pressed = data.pointer;

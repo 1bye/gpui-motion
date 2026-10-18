@@ -62,18 +62,23 @@ struct Demo {
 impl Render for Demo {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let scale = if self.large { 1.5 } else { 1. };
+
         let target = SvgTarget::default()
             .scale_xy(if self.mirrored { -scale } else { scale }, scale)
             .rotate_degrees(self.angle);
+
         let transition = if self.tween {
             Transition::Tween(Duration::from_millis(800), Easing::EaseInOut)
         } else {
             Transition::default()
         };
+
         let frame = self
             .state
             .frame(SvgMotion::new(target).transition(transition), window, cx);
+
         let [sx, sy] = frame.target().scale_factors();
+
         let status = format!(
             "{} · scale {:.2}, {:.2} · angle {:.1}° · {} · reduced {}",
             if frame.is_animating() {
@@ -87,6 +92,7 @@ impl Render for Demo {
             if self.tween { "800 ms tween" } else { "Spring" },
             cx.reduce_motion()
         );
+
         let controls = div()
             .flex()
             .gap_3()
@@ -110,6 +116,7 @@ impl Render for Demo {
                 button("reset", "Reset")
                     .on_click(|_, window, cx| window.dispatch_action(Box::new(Reset), cx)),
             );
+
         let stage = div()
             .id("svg-stage")
             .role(Role::Button)
@@ -167,6 +174,7 @@ impl Render for Demo {
             }))
             .on_action(cx.listener(|_, _: &Reduced, _, cx| {
                 let reduced = !cx.reduce_motion();
+
                 cx.set_reduce_motion(reduced);
                 cx.notify();
             }))
@@ -192,6 +200,7 @@ impl Render for Demo {
 }
 fn main() {
     let assets = common::SvgAsset(include_bytes!("assets/motion.svg"));
+
     gpui_platform::application()
         .with_assets(assets)
         .run(|cx: &mut App| {
@@ -200,6 +209,7 @@ fn main() {
             } else {
                 "ctrl"
             };
+
             cx.on_action(|_: &Quit, cx| cx.quit());
             cx.bind_keys([
                 KeyBinding::new("r", Rotate, None),
@@ -229,6 +239,7 @@ fn main() {
             ]);
             cx.on_window_closed(|cx, _| cx.quit()).detach();
             let bounds = Bounds::centered(None, size(px(820.), px(740.)), cx);
+
             let handle = cx
                 .open_window(
                     WindowOptions {
@@ -243,7 +254,9 @@ fn main() {
                     |window, cx| {
                         cx.new(|cx| {
                             let focus = cx.focus_handle();
+
                             focus.focus(window, cx);
+
                             Demo {
                                 focus,
                                 state: SvgMotionState::default(),
@@ -256,6 +269,7 @@ fn main() {
                     },
                 )
                 .expect("open SVG demo");
+
             handle
                 .update(cx, |_, window, _| window.activate_window())
                 .expect("SVG demo remains open");

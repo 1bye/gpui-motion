@@ -46,10 +46,12 @@ impl Render for Board {
         let epoch = *self
             .epoch
             .get_or_insert_with(|| cx.background_executor().now());
+
         let now = cx
             .background_executor()
             .now()
             .saturating_duration_since(epoch);
+
         let mut board = div()
             .id("board")
             .relative()
@@ -57,11 +59,13 @@ impl Render for Board {
             .flex_wrap()
             .gap(px(4.))
             .w(px(480.));
+
         let order: Vec<_> = if matches!(self.mode, Mode::Reorder) {
             self.reorder.order().to_vec()
         } else {
             (0..100).collect()
         };
+
         for id in order {
             let card = div()
                 .id(("card", id))
@@ -69,6 +73,7 @@ impl Render for Board {
                 .h(px(if self.expanded { 24. } else { 16. }))
                 .flex_shrink_0()
                 .bg(rgb(0x526a97));
+
             let element = match self.mode {
                 Mode::Direct => card.into_any_element(),
                 Mode::Styles | Mode::Blur => {
@@ -79,14 +84,18 @@ impl Render for Board {
                             ColorProperty::Background,
                             Color::rgb(if self.expanded { 0x6688bb } else { 0x334466 }),
                         );
+
                     if matches!(self.mode, Mode::Blur) {
                         target =
                             target.value(StyleProperty::Blur, if self.expanded { 2. } else { 0. });
                     }
+
                     let frame = self.styles[id].sample(StyleMotion::new(target), now, false);
+
                     if frame.is_animating() {
                         w.request_animation_frame();
                     }
+
                     frame.apply(card).into_any_element()
                 }
                 Mode::Gestures => self.gestures[id]
@@ -106,14 +115,17 @@ impl Render for Board {
                     .into_any_element(),
                 Mode::Pop => {
                     let present = id >= 25 || self.expanded;
+
                     let frame = self.motions[id].sample(
                         Motion::new(Target::default()).present(present),
                         now,
                         false,
                     );
+
                     if frame.is_animating() {
                         w.request_animation_frame();
                     }
+
                     self.pop
                         .item(("pop", id), present, frame.apply(card))
                         .into_any_element()
@@ -144,8 +156,10 @@ impl Render for Board {
                     )
                     .into_any_element(),
             };
+
             board = board.child(element);
         }
+
         div()
             .size_full()
             .child(self.pop.container("pop-container", board))
@@ -154,8 +168,10 @@ impl Render for Board {
 fn run(mode: Mode, label: &str) {
     let mut batches = Vec::new();
     let mut frames = Vec::new();
+
     for _ in 0..5 {
         let mut cx = TestAppContext::single();
+
         let window = cx.open_window(size(px(800.), px(600.)), |_, _| Board {
             mode,
             expanded: false,
@@ -169,16 +185,20 @@ fn run(mode: Mode, label: &str) {
             paths: [shape(false), shape(true)],
             motions: (0..100).map(|_| MotionState::default()).collect(),
         });
+
         cx.update_window(window.into(), |_, w, _| activation::activate(w))
             .unwrap();
         cx.run_until_parked();
         let mut total = Duration::ZERO;
+
         for frame in 0..264usize {
             cx.executor().advance_clock(Duration::from_micros(8333));
             let start = Instant::now();
+
             window
                 .update(&mut cx, |board, _, cx| {
                     let expanded = (frame / 24).is_multiple_of(2);
+
                     if expanded != board.expanded && matches!(mode, Mode::Reorder) {
                         board
                             .reorder
@@ -189,6 +209,7 @@ fn run(mode: Mode, label: &str) {
                             })
                             .unwrap();
                     }
+
                     board.expanded = expanded;
                     cx.notify();
                 })
@@ -198,14 +219,18 @@ fn run(mode: Mode, label: &str) {
                 w.draw(cx).clear(cx);
             })
             .unwrap();
+
             if frame >= 24 {
                 let elapsed = start.elapsed();
+
                 total += elapsed;
                 frames.push(elapsed.as_secs_f64() * 1000.);
             }
         }
+
         batches.push(total.as_secs_f64() * 1000. / 240.);
     }
+
     batches.sort_by(f64::total_cmp);
     frames.sort_by(f64::total_cmp);
     println!(

@@ -83,21 +83,25 @@ impl StyleTarget {
     /// Sets a scalar. Panics for non-finite or disallowed negative values.
     pub fn value(mut self, property: StyleProperty, value: f32) -> Self {
         let index = property as usize;
+
         assert!(
             value.is_finite() && (signed(index) || value >= 0.),
             "invalid style value"
         );
         self.values[index] = Some(value.into());
+
         self
     }
     /// Sets a color track.
     pub fn color(mut self, property: ColorProperty, color: Color) -> Self {
         self.colors[property as usize] = Some(color);
+
         self
     }
     /// Reads a scalar presentation, with non-negative properties clamped for drawing.
     pub fn get(self, property: StyleProperty) -> Option<f32> {
         let index = property as usize;
+
         self.values[index].map(|v| {
             v.clamp(
                 if signed(index) {
@@ -126,6 +130,7 @@ impl StyleTarget {
         {
             self = self.value(property, value);
         }
+
         self
     }
     /// Sets border widths in top/right/bottom/left order.
@@ -141,6 +146,7 @@ impl StyleTarget {
         {
             self = self.value(property, value);
         }
+
         self
     }
     /// Sets padding in top/right/bottom/left order.
@@ -156,6 +162,7 @@ impl StyleTarget {
         {
             self = self.value(property, value);
         }
+
         self
     }
     /// Sets margins in top/right/bottom/left order.
@@ -171,6 +178,7 @@ impl StyleTarget {
         {
             self = self.value(property, value);
         }
+
         self
     }
     /// Sets horizontal and vertical gap.
@@ -210,21 +218,25 @@ impl StyleMotion {
     /// Chooses the first presentation; omitted channels inherit the destination.
     pub fn initial(mut self, target: StyleTarget) -> Self {
         self.initial = Some(target);
+
         self
     }
     /// Sets default timing for all style tracks.
     pub fn transition(mut self, transition: Transition) -> Self {
         self.transition = transition;
+
         self
     }
     /// Overrides timing for one scalar track.
     pub fn transition_for(mut self, property: StyleProperty, transition: Transition) -> Self {
         self.overrides[property as usize] = Some(transition);
+
         self
     }
     /// Overrides timing for one color track.
     pub fn color_transition(mut self, property: ColorProperty, transition: Transition) -> Self {
         self.color_overrides[property as usize] = Some(transition);
+
         self
     }
 }
@@ -276,54 +288,67 @@ impl StyleMotionState {
         let mut result = StyleTarget::default();
         let mut active = false;
         let mut completed = false;
+
         for i in 0..COUNT {
             if let Some(value) = motion.target.values[i] {
                 self.destination.values[i] = Some(value);
             }
+
             if let Some(target) = self.destination.values[i] {
                 let initial = if self.initialized {
                     target
                 } else {
                     motion.initial.and_then(|v| v.values[i]).unwrap_or(target)
                 };
+
                 let state = self.values[i].get_or_insert_with(|| MotionValue::new(initial));
+
                 state.animate(
                     target,
                     motion.overrides[i].unwrap_or(motion.transition),
                     now,
                 );
                 let frame = state.sample(now, reduced);
+
                 completed |= frame.just_completed();
                 result.values[i] = Some(frame.value());
                 active |= frame.is_animating();
             }
         }
+
         for i in 0..4 {
             if let Some(color) = motion.target.colors[i] {
                 completed |= self.colors[i].is_some() && self.destination.colors[i] != Some(color);
                 self.destination.colors[i] = Some(color);
             }
+
             if let Some(target) = self.destination.colors[i] {
                 let initial = if self.initialized {
                     target
                 } else {
                     motion.initial.and_then(|v| v.colors[i]).unwrap_or(target)
                 };
+
                 completed |= !self.initialized && initial != target;
                 let state = self.colors[i].get_or_insert_with(|| ColorState::new(initial));
+
                 let (color, running) = state.sample(
                     target,
                     motion.color_overrides[i].unwrap_or(motion.transition),
                     now,
                     reduced,
                 );
+
                 result.colors[i] = Some(color);
                 active |= running;
             }
         }
+
         let completed = (self.active || completed) && !active;
+
         self.active = active;
         self.initialized = true;
+
         StyleFrame {
             target: result,
             active,
@@ -340,9 +365,11 @@ impl StyleMotionState {
     ) -> StyleFrame {
         let now = *self.epoch.get_or_insert_with(std::time::Instant::now);
         let frame = self.sample(motion, now.elapsed(), cx.reduce_motion());
+
         if frame.is_animating() {
             window.request_animation_frame();
         }
+
         frame
     }
 }
@@ -353,69 +380,91 @@ impl StyleFrame {
     pub fn apply<E: gpui::Styled>(self, mut element: E) -> E {
         use StyleProperty::*;
         use gpui::px;
+
         if let Some(v) = self.target.get(RadiusTopLeft) {
             element.style().corner_radii.top_left = Some(px(v).into());
         }
+
         if let Some(v) = self.target.get(RadiusTopRight) {
             element.style().corner_radii.top_right = Some(px(v).into());
         }
+
         if let Some(v) = self.target.get(RadiusBottomRight) {
             element.style().corner_radii.bottom_right = Some(px(v).into());
         }
+
         if let Some(v) = self.target.get(RadiusBottomLeft) {
             element.style().corner_radii.bottom_left = Some(px(v).into());
         }
+
         if let Some(v) = self.target.get(BorderTop) {
             element.style().border_widths.top = Some(px(v).into());
         }
+
         if let Some(v) = self.target.get(BorderRight) {
             element.style().border_widths.right = Some(px(v).into());
         }
+
         if let Some(v) = self.target.get(BorderBottom) {
             element.style().border_widths.bottom = Some(px(v).into());
         }
+
         if let Some(v) = self.target.get(BorderLeft) {
             element.style().border_widths.left = Some(px(v).into());
         }
+
         if let Some(v) = self.target.get(PaddingTop) {
             element.style().padding.top = Some(px(v).into());
         }
+
         if let Some(v) = self.target.get(PaddingRight) {
             element.style().padding.right = Some(px(v).into());
         }
+
         if let Some(v) = self.target.get(PaddingBottom) {
             element.style().padding.bottom = Some(px(v).into());
         }
+
         if let Some(v) = self.target.get(PaddingLeft) {
             element.style().padding.left = Some(px(v).into());
         }
+
         if let Some(v) = self.target.get(MarginTop) {
             element.style().margin.top = Some(px(v).into());
         }
+
         if let Some(v) = self.target.get(MarginRight) {
             element.style().margin.right = Some(px(v).into());
         }
+
         if let Some(v) = self.target.get(MarginBottom) {
             element.style().margin.bottom = Some(px(v).into());
         }
+
         if let Some(v) = self.target.get(MarginLeft) {
             element.style().margin.left = Some(px(v).into());
         }
+
         if let Some(v) = self.target.get(GapX) {
             element.style().gap.width = Some(px(v).into());
         }
+
         if let Some(v) = self.target.get(GapY) {
             element.style().gap.height = Some(px(v).into());
         }
+
         if let Some(color) = self.target.get_color(ColorProperty::Background) {
             element = element.bg(color.to_rgba());
         }
+
         if let Some(color) = self.target.get_color(ColorProperty::Text) {
             element = element.text_color(color.to_rgba());
         }
+
         if let Some(color) = self.target.get_color(ColorProperty::Border) {
             element = element.border_color(color.to_rgba());
         }
+
         if self.target.values[18..22].iter().any(Option::is_some) || self.target.colors[3].is_some()
         {
             let color = self
@@ -423,6 +472,7 @@ impl StyleFrame {
                 .get_color(ColorProperty::Shadow)
                 .unwrap_or(Color::rgba(0., 0., 0., 0.25))
                 .to_rgba();
+
             element.style().box_shadow = Some(vec![
                 gpui::BoxShadow::new(
                     px(self.target.get(ShadowX).unwrap_or(0.)),
@@ -433,12 +483,15 @@ impl StyleFrame {
                 .spread_radius(px(self.target.get(ShadowSpread).unwrap_or(0.))),
             ]);
         }
+
         if let Some(radius) = self.target.get(Blur) {
             element = element.filter(vec![gpui::Filter::Blur(px(radius))]);
         }
+
         if let Some(radius) = self.target.get(BackdropBlur) {
             element = element.backdrop_filter(vec![gpui::Filter::Blur(px(radius))]);
         }
+
         element
     }
 }

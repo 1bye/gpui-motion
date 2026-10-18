@@ -61,6 +61,7 @@ impl Render for Playground {
         } else {
             Transition::default()
         };
+
         let frame = self.card.frame(
             Motion::new(
                 Target::default()
@@ -88,6 +89,7 @@ impl Render for Playground {
             window,
             cx,
         );
+
         let status = format!(
             "{:?}  ·  {}  ·  Reduced motion {}",
             frame.presence(),
@@ -119,6 +121,7 @@ impl Render for Playground {
             }))
             .on_action(cx.listener(|_, _: &ToggleReducedMotion, _, cx| {
                 let reduced = !cx.reduce_motion();
+
                 cx.set_reduce_motion(reduced);
                 eprintln!("reduced motion: {reduced}");
                 cx.notify();
@@ -173,6 +176,7 @@ fn main() {
         } else {
             "ctrl"
         };
+
         cx.bind_keys([
             KeyBinding::new("space", TogglePresence, None),
             KeyBinding::new("r", Reverse, None),
@@ -200,6 +204,7 @@ fn main() {
         })
         .detach();
         let bounds = Bounds::centered(None, size(px(800.0), px(640.0)), cx);
+
         let handle = cx
             .open_window(
                 WindowOptions {
@@ -214,7 +219,9 @@ fn main() {
                 |window, cx| {
                     cx.new(|cx| {
                         let focus = cx.focus_handle();
+
                         focus.focus(window, cx);
+
                         Playground {
                             card: MotionState::default(),
                             focus,
@@ -227,6 +234,7 @@ fn main() {
                 },
             )
             .expect("open motion demo");
+
         handle
             .update(cx, |_, window, _| window.activate_window())
             .expect("demo is open");

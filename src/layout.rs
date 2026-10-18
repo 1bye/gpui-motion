@@ -94,23 +94,30 @@ impl LayoutPositionState {
             origin.iter().all(|v| v.is_finite()),
             "layout origin must be finite"
         );
+
         if !self.initialized {
             for (axis, value) in self.axes.iter_mut().zip(origin) {
                 axis.jump(value, now);
             }
+
             self.initialized = true;
         }
+
         let mut active = false;
         let mut completed = false;
         let mut velocity = [0.; 2];
+
         let position = std::array::from_fn(|i| {
             self.axes[i].animate(origin[i], transitions[i], now);
             let frame = self.axes[i].sample(now, reduced_motion);
+
             active |= frame.is_animating();
             completed |= frame.just_completed();
             velocity[i] = frame.velocity();
+
             frame.value()
         });
+
         LayoutPositionFrame {
             origin,
             position,

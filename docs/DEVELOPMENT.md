@@ -144,3 +144,36 @@ workloads, historical baselines, measured results, and their scope.
 [CHANGELOG.md](../CHANGELOG.md) records versions. Follow
 [PUBLISHING.md](../PUBLISHING.md) to inspect and validate the package before a
 manual release. CI has no crates.io publishing credentials or upload step.
+
+## Statement spacing
+
+Run the shared Dylint policy on every native source target and all README Rust
+examples:
+
+```sh
+rustup toolchain install nightly-2026-08-20 --profile minimal --component rustc-dev,llvm-tools-preview,rust-src
+cargo +nightly-2026-08-20 install cargo-dylint dylint-link --version 6.2.0 --locked
+python3 scripts/check_spacing.py
+python3 scripts/check_spacing.py --fix
+```
+
+The first Python command checks without editing files. The second applies only
+machine-applicable whitespace suggestions, then checks again. The rules come
+from the full workflow revision pinned in `workspace.metadata.dylint` in
+`Cargo.toml`; no local sibling checkout is needed. Keep the application on its
+normal stable toolchain. Native targets require macOS or the usual CE platform
+prerequisites. Python 3.9+ is sufficient; no Python packages are required.
+
+Consecutive single-line `let` declarations may stay together. Other declarations
+need a blank line afterward. Standalone control flow needs padding, and returns
+and final expressions need separation from earlier work. Blocks have no padding
+inside their braces, and files permit at most one consecutive empty line.
+
+README examples compile as isolated consumer scopes with GPUI enabled. Diagnostics
+report README line numbers; fixes preserve prose and non-whitespace code. Ignored
+and compile-fail examples are rejected rather than silently skipped.
+
+```sh
+python3 -m unittest discover -s scripts -p test_readme.py -v
+python3 scripts/test_readme_integration.py -v
+```

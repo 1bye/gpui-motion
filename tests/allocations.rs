@@ -17,6 +17,7 @@ unsafe impl GlobalAlloc for Counting {
                 count.set(Some(n + 1));
             }
         });
+
         // SAFETY: Caller supplies a valid allocation layout, forwarded unchanged.
         unsafe { System.alloc(layout) }
     }
@@ -30,6 +31,7 @@ unsafe impl GlobalAlloc for Counting {
                 count.set(Some(n + 1));
             }
         });
+
         // SAFETY: The caller's valid reallocation request is forwarded unchanged.
         unsafe { System.realloc(ptr, layout, size) }
     }
@@ -45,29 +47,36 @@ fn prepared_samples_and_controls_do_not_allocate() {
     )
     .repeat(Repeat::Forever, RepeatMode::Mirror, Duration::ZERO)
     .unwrap();
+
     let mut a = AnimationState::default();
     let mut m = MotionState::default();
     let mut layout = LayoutPositionState::default();
     let mut svg = SvgMotionState::default();
     let mut styles = StyleMotionState::default();
+
     let path_a = PathShape::new([
         PathCommand::Move([0., 0.]),
         PathCommand::Cubic([10., 20.], [30., 40.], [50., 0.]),
     ])
     .unwrap();
+
     let path_b = PathShape::new([
         PathCommand::Move([0., 0.]),
         PathCommand::Cubic([20., 40.], [40., 20.], [100., 0.]),
     ])
     .unwrap();
+
     let mut path = PathMorphState::new(path_a.clone());
     let mut color = ColorState::new(Color::rgb(0));
     let mut drag = Drag::new([0., 0.], [0., 0.], [100., 100.]);
     let mut timeline = Timeline::default();
+
     timeline.at(Duration::ZERO, clip.clone());
     COUNT.with(|c| c.set(Some(0)));
+
     for i in 0..240 {
         let now = Duration::from_millis(i * 8);
+
         std::hint::black_box(a.sample(&clip, now, false));
         std::hint::black_box(styles.sample(
             StyleMotion::new(StyleTarget::default().padding([i as f32; 4]).color(
@@ -85,6 +94,7 @@ fn prepared_samples_and_controls_do_not_allocate() {
                 false,
             )
             .unwrap();
+
         frame.stroke_segments(StrokeReveal::new(0.5, 0.2, 1.).unwrap(), |a, b| {
             std::hint::black_box((a, b));
         });
@@ -105,16 +115,21 @@ fn prepared_samples_and_controls_do_not_allocate() {
         std::hint::black_box(m.sample(Motion::new(Target::default().x(i as f32)), now, false));
         std::hint::black_box(color.sample(Color::rgb(0xffffff), Transition::default(), now, false));
         std::hint::black_box(timeline.sample(now, false));
+
         if i == 0 {
             drag.begin([0., 0.], now);
         }
+
         if i < 20 {
             drag.move_to([i as f64, i as f64], now);
         } else {
             drag.end(now);
         }
+
         std::hint::black_box(drag.sample(now, false));
     }
+
     let count = COUNT.with(|c| c.replace(None)).unwrap();
+
     assert_eq!(count, 0);
 }

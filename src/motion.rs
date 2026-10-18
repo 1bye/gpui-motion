@@ -33,6 +33,7 @@ impl Target {
         assert!(value.is_finite(), "x must be finite");
         self.values[0] = value.into();
         self.layout |= 1;
+
         self
     }
 
@@ -41,6 +42,7 @@ impl Target {
         assert!(value.is_finite(), "y must be finite");
         self.values[1] = value.into();
         self.layout |= 2;
+
         self
     }
 
@@ -49,6 +51,7 @@ impl Target {
         assert!((0.0..=1.0).contains(&value), "opacity must be in 0..=1");
         self.values[2] = value.into();
         self.layout |= 4;
+
         self
     }
 
@@ -90,6 +93,7 @@ impl Target {
         );
         self.values[ix] = value.into();
         self.layout |= 1 << ix;
+
         self
     }
 
@@ -101,11 +105,13 @@ impl Target {
     fn with_layout_fallback(mut self, fallback: Self) -> Self {
         for ix in 3..CHANNELS {
             let bit = 1 << ix;
+
             if self.layout & bit == 0 && fallback.layout & bit != 0 {
                 self.values[ix] = fallback.values[ix];
                 self.layout |= bit;
             }
         }
+
         self
     }
 
@@ -117,7 +123,9 @@ impl Target {
                 self.values[ix] = patch.values[ix];
             }
         }
+
         self.layout |= patch.layout;
+
         self
     }
     pub(crate) fn values(self) -> [f64; CHANNELS] {
@@ -181,26 +189,31 @@ impl Motion {
     /// Replaces the destination while retaining transition, entrance, and exit policy.
     pub fn with_target(mut self, target: Target) -> Self {
         self.target = target;
+
         self
     }
     /// Sets the first mount's presentation, used only once per retained state.
     pub fn initial(mut self, value: Target) -> Self {
         self.initial = Some(value);
+
         self
     }
     /// Sets the exit target; re-entry starts from the current exit presentation.
     pub fn exit(mut self, value: Target) -> Self {
         self.exit = value;
+
         self
     }
     /// Sets the transition. A change interrupts the current transition.
     pub fn transition(mut self, value: Transition) -> Self {
         self.transition = value;
+
         self
     }
     /// Delays each new target. An exit uses the same delay unless overridden.
     pub fn delay(mut self, delay: Duration) -> Self {
         self.delay = delay;
+
         self
     }
     /// Sets a property's independent transition and delay.
@@ -211,11 +224,13 @@ impl Motion {
         delay: Duration,
     ) -> Self {
         self.overrides[property as usize] = Some((transition, delay));
+
         self
     }
     /// Requests mount or removal. Continue sampling while false to finish exit.
     pub fn present(mut self, value: bool) -> Self {
         self.present = value;
+
         self
     }
 }
@@ -361,6 +376,7 @@ impl MotionState {
             let target = motion
                 .target
                 .with_layout_fallback(motion.initial.unwrap_or_default());
+
             let initial = if motion.present {
                 motion
                     .initial
@@ -369,18 +385,23 @@ impl MotionState {
             } else {
                 motion.exit.with_layout_fallback(target)
             };
+
             self.layout = initial.layout;
+
             for ix in 0..CHANNELS {
                 self.channels[ix].jump(initial.values[ix], now);
             }
+
             self.presence = if motion.present {
                 Presence::Entering
             } else {
                 Presence::Absent
             };
         }
+
         let previous_presence = self.presence;
         let was_present = matches!(self.presence, Presence::Present | Presence::Entering);
+
         let requested = if motion.present {
             motion.target
         } else {
@@ -390,13 +411,17 @@ impl MotionState {
             values: std::array::from_fn(|ix| self.channels[ix].target()),
             layout: self.layout,
         });
+
         let added = requested.layout & !self.layout;
+
         for ix in 3..CHANNELS {
             if added & (1 << ix) != 0 {
                 self.channels[ix].jump(requested.values[ix], now);
             }
         }
+
         self.layout = requested.layout;
+
         if was_present != motion.present {
             self.presence = if motion.present {
                 Presence::Entering
@@ -404,20 +429,25 @@ impl MotionState {
                 Presence::Exiting
             };
         }
+
         let mut active = false;
         let mut completed = false;
         let mut position = [0.0; CHANNELS];
         let mut velocity = [0.0; CHANNELS];
+
         for ix in 0..CHANNELS {
             let (transition, delay) =
                 motion.overrides[ix].unwrap_or((motion.transition, motion.delay));
+
             self.channels[ix].animate_delayed(requested.values[ix], transition, delay, now);
             let value = self.channels[ix].sample(now, reduced_motion);
+
             position[ix] = value.value();
             velocity[ix] = value.velocity();
             active |= value.is_animating();
             completed |= value.just_completed();
         }
+
         if !active {
             self.presence = if motion.present {
                 Presence::Present
@@ -425,8 +455,10 @@ impl MotionState {
                 Presence::Absent
             };
         }
+
         completed &= !active;
         completed |= self.presence == Presence::Absent && previous_presence != Presence::Absent;
+
         Frame {
             target: Target {
                 values: position,

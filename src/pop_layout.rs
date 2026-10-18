@@ -74,6 +74,7 @@ impl<E> PopElement<E> {
     /// themselves. Sizes change immediately; popped positions freeze until reentry.
     pub fn transition(mut self, transition: Transition) -> Self {
         self.transition = transition;
+
         self
     }
 }
@@ -121,6 +122,7 @@ impl<E: IntoElement + 'static> Element for PopElement<E> {
     ) -> (LayoutId, PopRequest) {
         let mut child = self.child.take().expect("one layout").into_any_element();
         let now = cx.background_executor().now();
+
         let old_bounds =
             w.with_element_state(id.expect("pop ID"), |history: Option<History>, _| {
                 let h = history.unwrap_or_else(|| History {
@@ -128,18 +130,22 @@ impl<E: IntoElement + 'static> Element for PopElement<E> {
                     position: LayoutPositionState::default(),
                     epoch: now,
                 });
+
                 (h.bounds, h)
             });
+
         let layout = if self.present == Some(false) {
             // A detached child avoids flex gaps and containing-block border drift.
             let style = Style {
                 display: Display::None,
                 ..Default::default()
             };
+
             w.request_layout(style, [], cx)
         } else {
             child.request_layout(w, cx)
         };
+
         (
             layout,
             PopRequest {
@@ -162,23 +168,28 @@ impl<E: IntoElement + 'static> Element for PopElement<E> {
                 previous: self.scope.origin.replace(bounds.origin),
                 origin: self.scope.origin.clone(),
             };
+
             request.child.prepaint(w, cx);
+
             return;
         }
 
         let now = cx.background_executor().now();
+
         if self.present == Some(false) {
             if let Some(old) = request.bounds {
                 // The detached placeholder has no meaningful origin. Freeze the
                 // retained presentation instead, so reentry never follows it.
                 w.with_element_state(id.expect("pop ID"), |history: Option<History>, _| {
                     let mut h = history.expect("history initialized during layout");
+
                     h.position.sample(
                         [f64::from(old.origin.x), f64::from(old.origin.y)],
                         Transition::Instant,
                         now.saturating_duration_since(h.epoch),
                         true,
                     );
+
                     ((), h)
                 });
                 request.child.prepaint_as_root(
@@ -193,29 +204,37 @@ impl<E: IntoElement + 'static> Element for PopElement<E> {
             }
         } else {
             let origin = bounds.origin - self.scope.origin.get();
+
             let frame = w.with_element_state(id.expect("pop ID"), |history: Option<History>, w| {
                 let mut h = history.expect("history initialized during layout");
+
                 let frame = h.position.sample(
                     [f64::from(origin.x), f64::from(origin.y)],
                     self.transition,
                     now.saturating_duration_since(h.epoch),
                     cx.reduce_motion(),
                 );
+
                 let [x, y] = frame
                     .position()
                     .map(|v| v.clamp(f32::MIN as f64, f32::MAX as f64) as f32);
+
                 h.bounds = Some(Bounds {
                     origin: point(px(x), px(y)),
                     size: bounds.size,
                 });
+
                 if frame.is_animating() {
                     w.request_animation_frame();
                 }
+
                 (frame, h)
             });
+
             let [x, y] = frame
                 .offset()
                 .map(|v| v.clamp(f32::MIN as f64, f32::MAX as f64) as f32);
+
             w.with_element_offset(point(px(x), px(y)), |w| request.child.prepaint(w, cx));
         }
     }

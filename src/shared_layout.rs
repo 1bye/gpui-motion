@@ -81,6 +81,7 @@ impl<K, E> SharedElement<K, E> {
     /// Chooses interruption-aware positional and crossfade timing.
     pub fn transition(mut self, transition: Transition) -> Self {
         self.transition = transition;
+
         self
     }
 }
@@ -117,6 +118,7 @@ impl<K: Eq + Hash + Clone + 'static, E: IntoElement + Styled + 'static> Element
         let now = cx.background_executor().now();
         let id = id.expect("shared ID");
         let mut entries = self.group.0.borrow_mut();
+
         let entry = entries.entry(self.key.clone()).or_insert_with(|| Entry {
             position: LayoutPositionState::default(),
             destination: [0.; 2],
@@ -124,37 +126,47 @@ impl<K: Eq + Hash + Clone + 'static, E: IntoElement + Styled + 'static> Element
             epoch: now,
             measured: false,
         });
+
         let initial = if self.active && entry.member.is_none() {
             1.
         } else {
             0.
         };
+
         if self.active {
             entry.member = Some(id.clone());
         }
+
         drop(entries);
         let opacity = w.with_element_state(id, |state: Option<Fade>, w| {
             let mut state = state.unwrap_or_else(|| Fade {
                 value: MotionValue::new(initial),
                 epoch: now,
             });
+
             let time = now.saturating_duration_since(state.epoch);
+
             state
                 .value
                 .animate(if self.active { 1. } else { 0. }, self.transition, time);
             let frame = state.value.sample(time, cx.reduce_motion());
+
             if frame.is_animating() {
                 w.request_animation_frame();
             }
+
             (frame.value().clamp(0., 1.) as f32, state)
         });
+
         let mut child = self
             .child
             .take()
             .expect("one layout")
             .opacity(opacity)
             .into_any_element();
+
         let layout = child.request_layout(w, cx);
+
         (layout, child)
     }
     fn prepaint(
@@ -169,31 +181,39 @@ impl<K: Eq + Hash + Clone + 'static, E: IntoElement + Styled + 'static> Element
         let now = cx.background_executor().now();
         let mut entries = self.group.0.borrow_mut();
         let entry = entries.get_mut(&self.key).expect("layout first");
+
         if !entry.measured && !self.active {
             drop(entries);
             child.prepaint(w, cx);
+
             return;
         }
+
         if self.active {
             entry.measured = true;
             entry.destination = [f64::from(bounds.origin.x), f64::from(bounds.origin.y)];
         }
+
         let frame = entry.position.sample(
             entry.destination,
             self.transition,
             now.saturating_duration_since(entry.epoch),
             cx.reduce_motion(),
         );
+
         if frame.is_animating() {
             w.request_animation_frame();
         }
+
         let presented = frame.position();
+
         let offset = point(
             px((presented[0] - f64::from(bounds.origin.x))
                 .clamp(f64::from(f32::MIN), f64::from(f32::MAX)) as f32),
             px((presented[1] - f64::from(bounds.origin.y))
                 .clamp(f64::from(f32::MIN), f64::from(f32::MAX)) as f32),
         );
+
         drop(entries);
         w.with_element_offset(offset, |w| {
             child.prepaint(w, cx);

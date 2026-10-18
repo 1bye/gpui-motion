@@ -47,24 +47,31 @@ impl<K: Clone + PartialEq> PresenceGroup<K> {
     /// Reintroducing an exiting key cancels its removal and preserves its identity.
     pub fn update(&mut self, keys: impl IntoIterator<Item = K>) -> Result<(), AnimationError> {
         let keys: Vec<_> = keys.into_iter().collect();
+
         if keys.iter().enumerate().any(|(i, k)| keys[..i].contains(k)) {
             return Err(AnimationError::Index);
         }
+
         for child in &mut self.children {
             child.present = keys.contains(&child.key);
         }
+
         let waiting = self.mode == PresenceMode::Wait && self.children.iter().any(|c| !c.present);
+
         self.pending.clear();
+
         for key in keys {
             if self.children.iter().any(|c| c.key == key) {
                 continue;
             }
+
             if waiting {
                 self.pending.push(key);
             } else {
                 self.children.push(PresenceChild { key, present: true });
             }
         }
+
         Ok(())
     }
     /// Mounted children, including exits; keys retain their original mount order.
@@ -81,7 +88,9 @@ impl<K: Clone + PartialEq> PresenceGroup<K> {
         else {
             return false;
         };
+
         self.children.remove(ix);
+
         if self.children.iter().all(|c| c.present) {
             self.children.extend(
                 self.pending
@@ -89,6 +98,7 @@ impl<K: Clone + PartialEq> PresenceGroup<K> {
                     .map(|key| PresenceChild { key, present: true }),
             );
         }
+
         true
     }
 }

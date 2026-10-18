@@ -11,10 +11,12 @@ trait ActivationCompat {
 impl ActivationCompat for Window {
     fn activate(&self) {
         let window: &Window = self;
+
         window.activate_window();
     }
     fn activate_window(&self) {
         let window: &Window = self;
+
         window.activate();
     }
 }

@@ -28,12 +28,14 @@ impl SvgTarget {
         assert!(x.is_finite() && y.is_finite(), "SVG scale must be finite");
         self.values[0] = f64::from(x);
         self.values[1] = f64::from(y);
+
         self
     }
     /// Sets an absolute unwrapped angle in degrees. Panics for non-finite input.
     pub fn rotate_degrees(mut self, degrees: f64) -> Self {
         assert!(degrees.is_finite(), "SVG rotation must be finite");
         self.values[2] = degrees;
+
         self
     }
     /// Sets a drawing-only logical-pixel translation. Layout and hitboxes stay fixed.
@@ -44,6 +46,7 @@ impl SvgTarget {
         );
         self.values[3] = x.into();
         self.values[4] = y.into();
+
         self
     }
     /// Presented drawing translation in logical pixels.
@@ -84,16 +87,19 @@ impl SvgMotion {
     /// Sets the first presentation, used only once by the retained state.
     pub fn initial(mut self, initial: SvgTarget) -> Self {
         self.initial = Some(initial);
+
         self
     }
     /// Chooses spring, tween, or instant motion for the five transform channels.
     pub fn transition(mut self, transition: Transition) -> Self {
         self.transition = transition;
+
         self
     }
     /// Holds the presentation before each new destination. Identical declarations do not restart.
     pub fn delay(mut self, delay: Duration) -> Self {
         self.delay = delay;
+
         self
     }
 }
@@ -169,14 +175,18 @@ impl SvgMotionState {
     pub fn sample(&mut self, motion: SvgMotion, now: Duration, reduced_motion: bool) -> SvgFrame {
         if !self.initialized {
             let initial = motion.initial.unwrap_or(motion.target);
+
             for (channel, value) in self.channels.iter_mut().zip(initial.values) {
                 channel.jump(value, now);
             }
+
             self.initialized = true;
         }
+
         let mut active = false;
         let mut completed = false;
         let mut velocity = [0.0; 5];
+
         let values = std::array::from_fn(|ix| {
             self.channels[ix].animate_delayed(
                 motion.target.values[ix],
@@ -185,11 +195,14 @@ impl SvgMotionState {
                 now,
             );
             let frame = self.channels[ix].sample(now, reduced_motion);
+
             active |= frame.is_animating();
             completed |= frame.just_completed();
             velocity[ix] = frame.velocity();
+
             frame.value()
         });
+
         SvgFrame {
             target: SvgTarget { values },
             velocity: [velocity[0], velocity[1], velocity[2]],

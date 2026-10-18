@@ -72,16 +72,20 @@ impl PathShape {
     pub fn new(commands: impl IntoIterator<Item = PathCommand>) -> Result<Self, PathError> {
         let commands: Vec<_> = commands.into_iter().collect();
         let mut started = false;
+
         if commands.is_empty() {
             return Err(PathError::Geometry);
         }
+
         for &command in &commands {
             if matches!(command, PathCommand::Move(_)) {
                 started = true;
             } else if !started {
                 return Err(PathError::Geometry);
             }
+
             let (values, count) = command.coordinates();
+
             if values[..count]
                 .iter()
                 .any(|v| !v.is_finite() || v.abs() > 1e9)
@@ -89,6 +93,7 @@ impl PathShape {
                 return Err(PathError::Geometry);
             }
         }
+
         Ok(Self(commands.into()))
     }
     /// Prepared absolute commands.
@@ -126,9 +131,11 @@ impl StrokeReveal {
         if !(0.0..=1.).contains(&length) || !(0.0..=1.).contains(&spacing) || !offset.is_finite() {
             return Err(PathError::Geometry);
         }
+
         if length > 0. && length + spacing < 1. / 4096. {
             return Err(PathError::Complexity);
         }
+
         Ok(Self {
             values: [length, offset, spacing],
         })
@@ -150,6 +157,7 @@ fn flatten(commands: &[PathCommand], vertices: &mut Vec<Vertex>) -> f64 {
     vertices.clear();
     let mut current = [0.; 2];
     let mut start = current;
+
     for &command in commands {
         match command {
             PathCommand::Move(p) => {
@@ -169,30 +177,37 @@ fn flatten(commands: &[PathCommand], vertices: &mut Vec<Vertex>) -> f64 {
             }
             PathCommand::Quadratic(control, to) => {
                 let from = current;
+
                 for i in 1..=32 {
                     let t = f64::from(i) / 32.;
                     let p = lerp(lerp(from, control, t), lerp(control, to, t), t);
+
                     vertices.push(Vertex {
                         point: p,
                         start: false,
                     });
                 }
+
                 current = to;
             }
             PathCommand::Cubic(a, b, to) => {
                 let from = current;
+
                 for i in 1..=32 {
                     let t = f64::from(i) / 32.;
+
                     let p = lerp(
                         lerp(lerp(from, a, t), lerp(a, b, t), t),
                         lerp(lerp(a, b, t), lerp(b, to, t), t),
                         t,
                     );
+
                     vertices.push(Vertex {
                         point: p,
                         start: false,
                     });
                 }
+
                 current = to;
             }
             PathCommand::Close => {
@@ -204,6 +219,7 @@ fn flatten(commands: &[PathCommand], vertices: &mut Vec<Vertex>) -> f64 {
             }
         }
     }
+
     vertices
         .windows(2)
         .filter(|p| !p[1].start)
@@ -235,13 +251,17 @@ impl PathMorphState {
     /// ```
     pub fn new(shape: PathShape) -> Self {
         let mut values = Vec::new();
+
         for &command in shape.commands() {
             let (v, n) = command.coordinates();
+
             values.extend(v[..n].iter().map(|v| MotionValue::new(*v)));
         }
+
         let commands = shape.commands().to_vec();
         let mut vertices = Vec::with_capacity(commands.len() * 32 + 1);
         let length = flatten(&commands, &mut vertices);
+
         Self {
             shape,
             values,
@@ -272,23 +292,30 @@ impl PathMorphState {
         let mut active = false;
         let mut completed = false;
         let mut changed = false;
+
         for (command, &target) in self.commands.iter_mut().zip(target.commands()) {
             let (mut coordinates, count) = target.coordinates();
+
             for value in &mut coordinates[..count] {
                 self.values[index].animate(*value, transition, now);
                 let frame = self.values[index].sample(now, reduced);
+
                 index += 1;
                 *value = frame.value().clamp(-1e9, 1e9);
                 active |= frame.is_animating();
                 completed |= frame.just_completed();
             }
+
             let next = target.with(coordinates);
+
             changed |= *command != next;
             *command = next;
         }
+
         if changed {
             self.length = flatten(&self.commands, &mut self.vertices);
         }
+
         Ok(PathFrame {
             commands: &self.commands,
             vertices: &self.vertices,
@@ -328,45 +355,58 @@ impl PathFrame<'_> {
     /// normalized total arc length; the finite period budget bounds traversal.
     pub fn stroke_segments(&self, reveal: StrokeReveal, mut emit: impl FnMut([f64; 2], [f64; 2])) {
         let [length, offset, gap] = reveal.values;
+
         if self.length <= 0. || length == 0. {
             return;
         }
+
         let period = (length + gap) * self.length;
         let visible = length * self.length;
         let shift = offset.rem_euclid(length + gap) * self.length;
         let mut distance = 0.;
+
         for points in self.vertices.windows(2) {
             if points[1].start {
                 continue;
             }
+
             let a = points[0].point;
             let b = points[1].point;
             let span = (b[0] - a[0]).hypot(b[1] - a[1]);
+
             if span == 0. {
                 continue;
             }
+
             let end = distance + span;
             let mut cursor = distance;
+
             while cursor < end {
                 let phase = (cursor - shift).rem_euclid(period);
                 let drawing = phase < visible;
+
                 let remaining = if drawing {
                     visible - phase
                 } else {
                     period - phase
                 };
+
                 let next = (cursor + remaining).min(end);
+
                 if next <= cursor {
                     break;
                 }
+
                 if drawing {
                     emit(
                         lerp(a, b, (cursor - distance) / span),
                         lerp(a, b, (next - distance) / span),
                     );
                 }
+
                 cursor = next;
             }
+
             distance = end;
         }
     }

@@ -53,9 +53,11 @@ impl VectorState {
         color: Color,
     ) -> Result<VectorElement, PathError> {
         self.0.borrow().morph.validate(&target)?;
+
         if !bounds.iter().all(|v| v.is_finite() && *v >= 0.) {
             return Err(PathError::Geometry);
         }
+
         Ok(VectorElement {
             id: id.into(),
             state: self.clone(),
@@ -84,23 +86,27 @@ impl VectorElement {
     /// Selects coordinate and stroke reveal timing.
     pub fn transition(mut self, transition: Transition) -> Self {
         self.transition = transition;
+
         self
     }
     /// Selects full-path fill. Reveal applies only to strokes.
     pub fn fill(mut self) -> Self {
         self.stroke = None;
+
         self
     }
     /// Selects a finite positive stroke width.
     pub fn stroke(mut self, width: f32) -> Self {
         assert!(width.is_finite() && width > 0.);
         self.stroke = Some(width);
+
         self
     }
     /// Animates normalized path length/offset/spacing. Springs are clamped at the
     /// drawing boundary; the coordinate/reveal momentum remains retained.
     pub fn reveal(mut self, reveal: StrokeReveal) -> Self {
         self.reveal = reveal;
+
         self
     }
 }
@@ -131,6 +137,7 @@ impl Element for VectorElement {
             flex_shrink: 0.,
             ..Default::default()
         };
+
         (w.request_layout(style, [], cx), ())
     }
     fn prepaint(
@@ -143,42 +150,56 @@ impl Element for VectorElement {
         cx: &mut App,
     ) -> Option<Path<Pixels>> {
         let mut data = self.state.0.borrow_mut();
+
         let epoch = *data
             .epoch
             .get_or_insert_with(|| cx.background_executor().now());
+
         let now = cx
             .background_executor()
             .now()
             .saturating_duration_since(epoch);
+
         let mut reveal = [0.; 3];
         let mut active = false;
+
         for (i, value) in data.reveal.iter_mut().enumerate() {
             value.animate(self.reveal.values()[i], self.transition, now);
             let frame = value.sample(now, cx.reduce_motion());
+
             reveal[i] = frame.value();
             active |= frame.is_animating();
         }
+
         // Clamping only affects drawing. Avoid tiny spring-overshoot dash periods.
         let reveal = StrokeReveal::new(reveal[0].clamp(0., 1.), reveal[1], reveal[2].clamp(0., 1.))
             .unwrap_or(self.reveal);
+
         let frame = data
             .morph
             .sample(&self.target, self.transition, now, cx.reduce_motion())
             .expect("validated topology");
+
         active |= frame.is_animating();
+
         if active {
             w.request_animation_frame();
         }
+
         let point_at = |p: [f64; 2]| bounds.origin + point(px(p[0] as f32), px(p[1] as f32));
+
         let mut builder = self
             .stroke
             .map_or_else(PathBuilder::fill, |width| PathBuilder::stroke(px(width)));
+
         if self.stroke.is_some() {
             let mut previous = None;
+
             frame.stroke_segments(reveal, |a, b| {
                 if previous != Some(a) {
                     builder.move_to(point_at(a));
                 }
+
                 builder.line_to(point_at(b));
                 previous = Some(b);
             });
@@ -197,13 +218,16 @@ impl Element for VectorElement {
                 }
             }
         }
+
         match builder.build() {
             Ok(path) => {
                 data.error = None;
+
                 Some(path)
             }
             Err(_) => {
                 data.error = Some(PathError::Tessellation);
+
                 None
             }
         }

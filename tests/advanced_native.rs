@@ -40,9 +40,11 @@ impl Render for Fixture {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         cx.set_reduce_motion(self.reduced);
         let mut root = div().size_full().flex().flex_col().items_start();
+
         match self.mode {
             0 => {
                 let clicks = self.clicks.clone();
+
                 root = root
                     .child(
                         AutoSize::new(
@@ -80,6 +82,7 @@ impl Render for Fixture {
                     .p(px(10.))
                     .w(px(200.))
                     .h(px(100.));
+
                 for id in 0..3usize {
                     let card = div()
                         .id(("pop-card", id))
@@ -87,16 +90,19 @@ impl Render for Fixture {
                         .w(px(40.))
                         .h(px(30.))
                         .flex_shrink_0();
+
                     row = row.child(
                         self.pop
                             .item(("pop-item", id), id != 0 || self.open, card)
                             .transition(linear()),
                     );
                 }
+
                 root = root.child(self.pop.container("container", row));
             }
             2 => {
                 let clicks = self.clicks.clone();
+
                 root = root.child(
                     self.gestures
                         .bind(
@@ -179,10 +185,12 @@ impl Render for Fixture {
                             )
                             .transition(linear()),
                     );
+
                 root = root.child(row);
             }
             5 => {
                 let mut column = div().flex().flex_col().items_start();
+
                 for key in self.reorder.order().iter().copied() {
                     column = column.child(
                         self.reorder
@@ -202,6 +210,7 @@ impl Render for Fixture {
                             .transition(linear()),
                     );
                 }
+
                 root = root.child(column);
             }
             6 => {
@@ -222,6 +231,7 @@ impl Render for Fixture {
             }
             _ => unreachable!(),
         }
+
         root
     }
 }
@@ -244,10 +254,12 @@ fn setup(cx: &mut TestAppContext, mode: u8) -> gpui::WindowHandle<Fixture> {
         vector: VectorState::new(shape(0.)),
         clicks: Rc::new(Cell::new(0)),
     });
+
     cx.update_window(window.into(), |_, w, _| activation::activate(w))
         .unwrap();
     cx.run_until_parked();
     draw(cx, window);
+
     window
 }
 fn draw(cx: &mut TestAppContext, window: gpui::WindowHandle<Fixture>) {
@@ -271,6 +283,7 @@ fn intrinsic_size_reflows_siblings_clips_input_and_retargets_without_jumping(
     cx: &mut TestAppContext,
 ) {
     let window = setup(cx, 0);
+
     assert_eq!(bounds(cx, window, "sibling").origin.y, px(40.));
     window
         .update(cx, |v, _, cx| {
@@ -281,6 +294,7 @@ fn intrinsic_size_reflows_siblings_clips_input_and_retargets_without_jumping(
     draw(cx, window);
     assert_eq!(bounds(cx, window, "sibling").origin.y, px(40.));
     let clicks = window.update(cx, |v, _, _| v.clicks.clone()).unwrap();
+
     VisualTestContext::from_window(window.into(), cx).simulate_mouse_down(
         point(px(10.), px(80.)),
         MouseButton::Left,
@@ -311,6 +325,7 @@ fn intrinsic_size_reflows_siblings_clips_input_and_retargets_without_jumping(
 fn popped_exit_preserves_bounds_and_allows_immediate_sibling_reflow(cx: &mut TestAppContext) {
     let window = setup(cx, 1);
     let old = bounds(cx, window, "pop-0");
+
     assert_eq!(old.origin.x, px(11.));
     window
         .update(cx, |v, _, cx| {
@@ -333,8 +348,10 @@ fn popped_exit_preserves_bounds_and_allows_immediate_sibling_reflow(cx: &mut Tes
 fn native_gestures_bind_hover_press_drag_outside_release_and_keyboard(cx: &mut TestAppContext) {
     let window = setup(cx, 2);
     let state = window.update(cx, |v, _, _| v.gestures.clone()).unwrap();
+
     assert!(state.interaction().in_view);
     let mut visual = VisualTestContext::from_window(window.into(), cx);
+
     visual.simulate_mouse_move(point(px(10.), px(10.)), None, Modifiers::default());
     assert!(state.interaction().hovered);
     visual.simulate_mouse_down(
@@ -371,6 +388,7 @@ fn drag_cancels_on_escape_blur_and_window_deactivation(cx: &mut TestAppContext) 
     let window = setup(cx, 2);
     let state = window.update(cx, |v, _, _| v.gestures.clone()).unwrap();
     let mut visual = VisualTestContext::from_window(window.into(), cx);
+
     visual.simulate_mouse_down(
         point(px(10.), px(10.)),
         MouseButton::Left,
@@ -388,11 +406,14 @@ fn drag_cancels_on_escape_blur_and_window_deactivation(cx: &mut TestAppContext) 
     let other_focus = window
         .update(cx, |_, w, cx| {
             let focus = cx.focus_handle();
+
             focus.focus(w, cx);
             cx.notify();
+
             focus
         })
         .unwrap();
+
     draw(cx, window);
     assert!(!state.interaction().dragging);
     drop(other_focus);
@@ -413,6 +434,7 @@ fn native_scroll_binding_reads_real_extents_without_host_metric_calculation(
 ) {
     let window = setup(cx, 3);
     let scroll = window.update(cx, |v, _, _| v.scroll.clone()).unwrap();
+
     assert_eq!(native_scroll_progress(&scroll, Axis::Y), 0.);
     window
         .update(cx, |v, _, cx| {
@@ -427,6 +449,7 @@ fn native_scroll_binding_reads_real_extents_without_host_metric_calculation(
 #[gpui::test]
 fn shared_position_crossfade_retargets_across_separate_native_ids(cx: &mut TestAppContext) {
     let window = setup(cx, 4);
+
     assert_eq!(bounds(cx, window, "shared-a").origin.x, px(0.));
     window
         .update(cx, |v, _, cx| {
@@ -452,6 +475,7 @@ fn shared_position_crossfade_retargets_across_separate_native_ids(cx: &mut TestA
     draw(cx, window);
     assert_eq!(bounds(cx, window, "shared-a").origin.x, px(0.));
     let shared = window.update(cx, |v, _, _| v.shared.clone()).unwrap();
+
     assert_eq!(shared.len(), 1);
     shared.remove(&0);
     assert!(shared.is_empty());
@@ -461,6 +485,7 @@ fn reorder_uses_actual_geometry_and_commits_pointer_and_keyboard_order(cx: &mut 
     let window = setup(cx, 5);
     let group = window.update(cx, |v, _, _| v.reorder.clone()).unwrap();
     let mut visual = VisualTestContext::from_window(window.into(), cx);
+
     visual.simulate_mouse_down(
         point(px(10.), px(15.)),
         MouseButton::Left,
@@ -491,6 +516,7 @@ fn reorder_escape_restores_original_order(cx: &mut TestAppContext) {
     let window = setup(cx, 5);
     let group = window.update(cx, |v, _, _| v.reorder.clone()).unwrap();
     let mut visual = VisualTestContext::from_window(window.into(), cx);
+
     visual.simulate_mouse_down(
         point(px(10.), px(15.)),
         MouseButton::Left,
@@ -511,6 +537,7 @@ fn vector_morph_and_reveal_tessellate_and_stop_scheduling_after_reduced_motion(
     cx: &mut TestAppContext,
 ) {
     let window = setup(cx, 6);
+
     assert_eq!(window.update(cx, |v, _, _| v.vector.error()).unwrap(), None);
     window
         .update(cx, |v, _, cx| {
@@ -540,6 +567,7 @@ fn vector_morph_and_reveal_tessellate_and_stop_scheduling_after_reduced_motion(
 #[gpui::test]
 fn unanimated_measured_axes_do_not_schedule_unnecessary_frames(cx: &mut TestAppContext) {
     let window = setup(cx, 0);
+
     window
         .update(cx, |v, _, cx| {
             v.width = 140.;
@@ -573,6 +601,7 @@ fn first_active_shared_member_snaps_even_when_inactive_member_is_traversed_first
     cx: &mut TestAppContext,
 ) {
     let window = setup(cx, 4);
+
     window
         .update(cx, |v, _, cx| {
             v.shared.remove(&0);
@@ -589,6 +618,7 @@ fn keyboard_motion_reaches_a_control_with_text_descendants(cx: &mut TestAppConte
     let window = setup(cx, 2);
     let state = window.update(cx, |v, _, _| v.gestures.clone()).unwrap();
     let focus = state.focus_handle().unwrap();
+
     cx.update_window(window.into(), |_, w, cx| focus.focus(w, cx))
         .unwrap();
     draw(cx, window);
@@ -604,6 +634,7 @@ fn disabling_native_bindings_cancels_drag_and_blocks_child_activation(cx: &mut T
     let state = window.update(cx, |v, _, _| v.gestures.clone()).unwrap();
     let clicks = window.update(cx, |v, _, _| v.clicks.clone()).unwrap();
     let mut visual = VisualTestContext::from_window(window.into(), cx);
+
     visual.simulate_mouse_down(
         point(px(10.), px(10.)),
         MouseButton::Left,
@@ -634,12 +665,14 @@ fn reorder_callbacks_only_fire_for_changes_and_can_reenter_the_group(cx: &mut Te
     let count = Rc::new(Cell::new(0));
     let calls = count.clone();
     let observer = group.clone();
+
     group.clone().on_change(move |order, _, _| {
         assert_eq!(&*observer.order(), order);
         observer.set_order(order.to_vec()).unwrap();
         calls.set(calls.get() + 1);
     });
     let mut visual = VisualTestContext::from_window(window.into(), cx);
+
     visual.simulate_click(point(px(10.), px(15.)), Modifiers::default());
     assert_eq!(count.get(), 0);
     visual.simulate_keystrokes("alt-down");
@@ -652,6 +685,7 @@ fn reorder_callbacks_only_fire_for_changes_and_can_reenter_the_group(cx: &mut Te
 #[gpui::test]
 fn restoring_a_popped_item_preserves_its_displayed_position(cx: &mut TestAppContext) {
     let window = setup(cx, 1);
+
     window
         .update(cx, |v, _, cx| {
             v.swapped = true;
@@ -662,6 +696,7 @@ fn restoring_a_popped_item_preserves_its_displayed_position(cx: &mut TestAppCont
     cx.executor().advance_clock(Duration::from_millis(500));
     draw(cx, window);
     let presented = bounds(cx, window, "pop-0").origin;
+
     window
         .update(cx, |v, _, cx| {
             v.open = false;

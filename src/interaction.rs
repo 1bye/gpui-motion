@@ -11,6 +11,7 @@ impl<K: PartialEq> Variants<K> {
     /// Creates named declarations, rejecting duplicate names transactionally.
     pub fn new(entries: impl IntoIterator<Item = (K, Motion)>) -> Result<Self, AnimationError> {
         let entries: Vec<_> = entries.into_iter().collect();
+
         if entries
             .iter()
             .enumerate()
@@ -18,6 +19,7 @@ impl<K: PartialEq> Variants<K> {
         {
             return Err(AnimationError::Label);
         }
+
         Ok(Self { entries })
     }
     /// Looks up a declaration. Pass the same key to children for variant propagation.
@@ -56,26 +58,31 @@ impl GestureTargets {
     /// Declares the hover override.
     pub fn while_hover(mut self, target: Target) -> Self {
         self.hover = Some(target);
+
         self
     }
     /// Declares the pointer/keyboard press override.
     pub fn while_press(mut self, target: Target) -> Self {
         self.press = Some(target);
+
         self
     }
     /// Declares the keyboard-visible focus override.
     pub fn while_focus(mut self, target: Target) -> Self {
         self.focus = Some(target);
+
         self
     }
     /// Declares the dragging override.
     pub fn while_drag(mut self, target: Target) -> Self {
         self.drag = Some(target);
+
         self
     }
     /// Declares the viewport visibility override.
     pub fn while_in_view(mut self, target: Target) -> Self {
         self.view = Some(target);
+
         self
     }
     /// Combines active overrides without replacing unrelated base properties.
@@ -91,6 +98,7 @@ impl GestureTargets {
                 base = base.overlay(target);
             }
         }
+
         base
     }
 }
@@ -119,6 +127,7 @@ impl Drag {
                 && initial[i] <= max[i]),
             "invalid drag bounds"
         );
+
         Self {
             values: initial.map(MotionValue::new),
             min,
@@ -136,27 +145,33 @@ impl Drag {
     pub fn elasticity(mut self, value: f64) -> Self {
         assert!((0.0..=1.0).contains(&value), "invalid elasticity");
         self.elasticity = value;
+
         self
     }
     /// Snaps release destinations to this positive finite grid spacing.
     pub fn snap_grid(mut self, spacing: f64) -> Self {
         assert!(spacing.is_finite() && spacing > 0.0, "invalid snap grid");
         self.snap = Some(spacing);
+
         self
     }
     /// Enables/disables velocity projection on release.
     pub fn momentum(mut self, enabled: bool) -> Self {
         self.momentum = enabled;
+
         self
     }
     /// Grabs the currently presented position, interrupting any previous release motion.
     pub fn begin(&mut self, pointer: [f64; 2], now: Duration) {
         assert!(pointer.iter().all(|v| v.is_finite()), "invalid pointer");
+
         for ix in 0..2 {
             let value = self.values[ix].sample(now, false).value();
+
             self.values[ix].jump(value, now);
             self.origin[ix] = value;
         }
+
         self.pointer = pointer;
         self.last_move = now;
         self.dragging = true;
@@ -164,15 +179,20 @@ impl Drag {
     /// Follows the pointer one-to-one inside bounds, with configured resistance outside.
     pub fn move_to(&mut self, pointer: [f64; 2], now: Duration) {
         assert!(pointer.iter().all(|v| v.is_finite()), "invalid pointer");
+
         if !self.dragging {
             return;
         }
+
         self.last_move = self.last_move.max(now);
+
         for (ix, point) in pointer.into_iter().enumerate() {
             let raw = crate::value::finite(
                 self.origin[ix] + crate::value::finite(point - self.pointer[ix]),
             );
+
             let clamped = raw.clamp(self.min[ix], self.max[ix]);
+
             self.values[ix].set(clamped + (raw - clamped) * self.elasticity, now);
         }
     }
@@ -182,29 +202,36 @@ impl Drag {
         if !self.dragging {
             return;
         }
+
         self.dragging = false;
+
         if now.saturating_sub(self.last_move) > Duration::from_millis(100) {
             for value in &mut self.values {
                 value.jump(value.get(), now);
             }
         }
+
         for ix in 0..2 {
             let inertia = Inertia::default().bounds(self.min[ix], self.max[ix]);
+
             if let Some(grid) = self.snap {
                 let projected = if self.momentum {
                     inertia.project(self.values[ix].get(), self.values[ix].velocity())
                 } else {
                     self.values[ix].get()
                 };
+
                 let target = (projected / grid)
                     .round()
                     .mul_add(grid, 0.0)
                     .clamp(self.min[ix], self.max[ix]);
+
                 self.values[ix].animate(target, Transition::default(), now);
             } else if self.momentum {
                 self.values[ix].coast(inertia, now);
             } else {
                 let target = self.values[ix].get().clamp(self.min[ix], self.max[ix]);
+
                 self.values[ix].animate(target, Transition::default(), now);
             }
         }
@@ -215,7 +242,9 @@ impl Drag {
         if !self.dragging {
             return;
         }
+
         self.dragging = false;
+
         for ix in 0..2 {
             self.values[ix].animate(
                 self.origin[ix].clamp(self.min[ix], self.max[ix]),
@@ -228,8 +257,10 @@ impl Drag {
     pub fn move_by(&mut self, delta: [f64; 2], now: Duration) {
         assert!(delta.iter().all(|v| v.is_finite()), "invalid drag delta");
         self.dragging = false;
+
         for (ix, delta) in delta.into_iter().enumerate() {
             let target = (self.values[ix].target() + delta).clamp(self.min[ix], self.max[ix]);
+
             self.values[ix].animate(target, Transition::default(), now);
         }
     }
@@ -239,6 +270,7 @@ impl Drag {
             .values
             .each_mut()
             .map(|value| value.sample(now, reduced_motion));
+
         Frame::animated(
             Target::default()
                 .x(values[0].value().clamp(-(f32::MAX as f64), f32::MAX as f64) as f32)
@@ -272,11 +304,13 @@ pub fn transform(value: f64, input: [f64; 2], output: [f64; 2], clamp: bool) -> 
         "invalid transform range"
     );
     let progress = (value - input[0]) / (input[1] - input[0]);
+
     let progress = if clamp {
         progress.clamp(0.0, 1.0)
     } else {
         progress
     };
+
     output[0] + (output[1] - output[0]) * progress
 }
 /// Normalizes a positive scroll offset using measured content and viewport extents.
@@ -288,6 +322,7 @@ pub fn scroll_progress(offset: f64, content: f64, viewport: f64) -> f64 {
             && viewport >= 0.0,
         "invalid scroll metrics"
     );
+
     if content <= viewport || offset <= 0.0 {
         0.0
     } else {
@@ -309,6 +344,7 @@ impl InView {
             (0.0..=1.0).contains(&amount),
             "invalid visibility threshold"
         );
+
         Self {
             amount,
             once,
@@ -329,18 +365,24 @@ impl InView {
         );
         let width =
             (viewport[0] + viewport[2]).min(element[0] + element[2]) - viewport[0].max(element[0]);
+
         let height =
             (viewport[1] + viewport[3]).min(element[1] + element[3]) - viewport[1].max(element[1]);
+
         let area = element[2] * element[3];
+
         let fraction = if area > 0.0 {
             width.max(0.0) * height.max(0.0) / area
         } else {
             0.0
         };
+
         let visible = (self.once && self.entered) || (fraction > 0.0 && fraction >= self.amount);
         let changed = self.visible != visible;
+
         self.visible = visible;
         self.entered |= visible;
+
         changed
     }
     /// Last resolved visibility, including a once-only latch.
@@ -357,6 +399,7 @@ pub fn reorder_index(centers: &[f64], position: f64) -> Result<usize, AnimationE
     {
         return Err(AnimationError::Index);
     }
+
     Ok(centers
         .iter()
         .enumerate()
@@ -369,10 +412,12 @@ pub fn move_item<T>(items: &mut [T], from: usize, to: usize) -> Result<(), Anima
     if from >= items.len() || to >= items.len() {
         return Err(AnimationError::Index);
     }
+
     if from < to {
         items[from..=to].rotate_left(1);
     } else {
         items[to..=from].rotate_right(1);
     }
+
     Ok(())
 }

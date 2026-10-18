@@ -18,11 +18,14 @@ pub enum Axis {
 pub fn native_scroll_progress(handle: &ScrollHandle, axis: Axis) -> f64 {
     let offset = handle.offset();
     let max = handle.max_offset();
+
     let (offset, max) = match axis {
         Axis::X => (offset.x, max.x),
         Axis::Y => (offset.y, max.y),
     };
+
     let max = f64::from(max).abs();
+
     if max == 0. {
         0.
     } else {
@@ -65,6 +68,7 @@ impl<E> ScrollMotion<E> {
     /// Selects optional smoothing.
     pub fn transition(mut self, transition: Transition) -> Self {
         self.transition = transition;
+
         self
     }
 }
@@ -99,33 +103,41 @@ impl<E: IntoElement + Styled + 'static> Element for ScrollMotion<E> {
         let now = cx.background_executor().now();
         let from = self.from.inherit(self.to);
         let to = self.to.inherit(self.from);
+
         let target = Target::from_values(
             std::array::from_fn(|i| {
                 from.values()[i] + (to.values()[i] - from.values()[i]) * progress
             }),
             from.mask() | to.mask(),
         );
+
         let frame = w.with_element_state(id.expect("scroll ID"), |state: Option<History>, w| {
             let mut state = state.unwrap_or_else(|| History {
                 state: MotionState::default(),
                 epoch: now,
                 progress,
             });
+
             state.progress = progress;
             let frame = state.state.sample(
                 Motion::new(target).transition(self.transition),
                 now.saturating_duration_since(state.epoch),
                 cx.reduce_motion(),
             );
+
             if frame.is_animating() {
                 w.request_animation_frame();
             }
+
             (frame, state)
         });
+
         let mut child = frame
             .apply(self.child.take().expect("one layout"))
             .into_any_element();
+
         let layout = child.request_layout(w, cx);
+
         (layout, child)
     }
     fn prepaint(
@@ -139,11 +151,14 @@ impl<E: IntoElement + Styled + 'static> Element for ScrollMotion<E> {
     ) {
         child.prepaint(w, cx);
         let progress = native_scroll_progress(&self.handle, self.axis);
+
         w.with_element_state(id.expect("scroll ID"), |state: Option<History>, w| {
             let state = state.expect("layout first");
+
             if (state.progress - progress).abs() > 1e-9 {
                 w.request_animation_frame();
             }
+
             ((), state)
         });
     }
