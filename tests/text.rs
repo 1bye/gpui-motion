@@ -6,6 +6,7 @@ use gpui_ce_motion::{
     Target, TextLayoutUnit, TextMatch, TextOptions, TextPlaybackState, TextPreset, TextTarget,
     TextUnit, Transition, text_ranges,
 };
+
 use std::time::Duration;
 
 fn ms(value: u64) -> Duration {

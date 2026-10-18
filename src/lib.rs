@@ -141,6 +141,7 @@ pub use vector_native::{VectorElement, VectorState};
 
 #[cfg(feature = "text")]
 mod text;
+
 #[cfg(feature = "text")]
 pub use text::{
     NumberEffect, Scramble, TextClip, TextError, TextLayoutUnit, TextMatch, TextOptions,
@@ -151,7 +152,9 @@ pub use text::{
 #[cfg(feature = "gpui")]
 mod text_native {
     use gpui::ColorExt as _;
+
     crate::__motion_text_adapter!(gpui);
 }
+
 #[cfg(feature = "gpui")]
 pub use text_native::{NumberElement, NumberMotionState, TextElement, TextMotionState};

@@ -4,10 +4,12 @@ use gpui::{
     App, Bounds, Context, FocusHandle, KeyBinding, MouseButton, Window, WindowBounds,
     WindowOptions, actions, div, prelude::*, px, rgb, size,
 };
+
 use gpui_ce_motion::{
     Animation, Easing, Keyframe, NumberEffect, NumberMotionState, Repeat, RepeatMode, Scramble,
     StaggerFrom, Target, TextMatch, TextMotionState, TextPreset, TextTarget, TextUnit, Transition,
 };
+
 use std::time::Duration;
 
 actions!(
@@ -31,6 +33,7 @@ actions!(
         Quit
     ]
 );
+
 const MODES: [&str; 12] = [
     "Fade",
     "Words",
@@ -45,24 +48,30 @@ const MODES: [&str; 12] = [
     "Scrub 50%",
     "Numbers",
 ];
+
 const TEXT: [&str; 4] = [
     "Made to move.",
     "Words find their place.",
     "A little more room to breathe.",
     "Café 👩🏽‍💻 — مرحباً بالعالم",
 ];
+
 struct Palette;
+
 impl Palette {
     fn background() -> gpui::Rgba {
         rgb(0x18181b)
     }
+
     fn foreground() -> gpui::Rgba {
         rgb(0xf4f4f5)
     }
+
     fn surface() -> gpui::Rgba {
         rgb(0x27272a)
     }
 }
+
 struct Demo {
     motion: TextMotionState,
     number: NumberMotionState,
@@ -74,18 +83,21 @@ struct Demo {
     wave: Animation,
     scramble: Scramble,
 }
+
 impl Demo {
     fn switch(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.mode = (self.mode + 1) % MODES.len();
         self.motion.restart(window, cx);
         cx.notify();
     }
+
     fn replay(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.motion.restart(window, cx);
         self.number.text_state().restart(window, cx);
         cx.notify();
     }
 }
+
 impl Render for Demo {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let text = self
@@ -288,6 +300,7 @@ impl Render for Demo {
             )
     }
 }
+
 fn main() {
     gpui_platform::application().run(|cx: &mut App| {
         cx.bind_keys([

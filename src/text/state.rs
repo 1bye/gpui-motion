@@ -1,5 +1,6 @@
 use super::{TextMatch, TextOptions, TextTarget};
 use crate::{AnimationState, MotionValue, Playback, PresenceMode, stagger};
+
 use std::{
     collections::{HashMap, VecDeque},
     sync::Arc,

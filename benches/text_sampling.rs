@@ -3,10 +3,12 @@ use gpui_ce_motion::{
     Scramble, StaggerFrom, TextLayoutUnit, TextMatch, TextOptions, TextPlaybackState, TextTarget,
     Transition,
 };
+
 use std::{
     hint::black_box,
     time::{Duration, Instant},
 };
+
 fn main() {
     for (label, scramble) in [
         ("spring text units", false),

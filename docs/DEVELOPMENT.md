@@ -176,6 +176,11 @@ from the full workflow revision pinned in `workspace.metadata.dylint` in
 normal stable toolchain. Native targets require macOS or the usual CE platform
 prerequisites. Python 3.9+ is sufficient; no Python packages are required.
 
+After updating the pinned lint revision, `cargo dylint list --all` should list
+`statement_padding`, `item_padding`, `multiple_empty_lines`, and `padded_blocks`.
+If it still lists older rules, clear the generated `target/dylint/libraries`
+cache in the affected workspace and rerun the check to rebuild the lint library.
+
 Consecutive single-line `let` declarations may stay together. Other declarations
 need a blank line afterward. Standalone control flow needs padding, and returns
 and final expressions need separation from earlier work. Blocks have no padding
