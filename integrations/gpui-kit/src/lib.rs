@@ -2,7 +2,8 @@
 //!
 //! This adapter uses Kit's GPUI types. It does not enable the core crate's CE
 //! feature, and it does not change either renderer. Retain one state per logical
-//! object, declare its destination during render, and notify after input changes.
+//! object, or use [`Motions`] to collect ordinary transitions by key. Declare
+//! destinations during render and notify after input changes.
 //!
 //! ```
 //! use gpui_ce_motion::{Motion, Target};
@@ -30,6 +31,7 @@ pub use gpui_ce_motion as core;
 mod gesture_native;
 mod layout;
 mod measured_size;
+mod motions;
 mod playback;
 mod pop_layout;
 mod reorder_native;
@@ -41,6 +43,7 @@ mod vector;
 
 pub use gesture_native::{GestureElement, GestureState};
 pub use measured_size::{AutoSize, SizeAxis};
+pub use motions::Motions;
 pub use playback::{AnimationState, Timeline};
 pub use pop_layout::{PopElement, PopLayout, PopRequest};
 pub use reorder_native::{ReorderElement, ReorderGroup};

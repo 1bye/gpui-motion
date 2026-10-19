@@ -881,3 +881,91 @@ cargo bench --locked --no-default-features --bench sampling --bench graph
 cargo bench --locked --features demo,native-tests --bench motion_lab
 cargo bench --manifest-path integrations/gpui-kit/Cargo.toml --locked --features demo,native-tests --bench motion_lab
 ```
+
+## Keyed collections — 2026-10-19
+
+Core 0.4.0 / Kit 0.5.0. Apple M1 Max, macOS 26.6.2,
+Rust 1.95.0, optimized builds. Portable and native measurements run sequentially,
+with reversed execution order on the second pass and no concurrent builds.
+The desktop remains interactive; these are observations, not latency bounds.
+
+### Portable sampling and memory
+
+The `motions` benchmark compares a `Motions<usize>` batch with directly indexed
+`MotionState`s under identical six-channel springs, retargeting every 24 frames,
+and alternating declaration order. Both paths construct the same declaration
+arrays and return owned frame arrays. Setup is excluded from sampling timings.
+There are 25 batches, each sampling 240,000 objects in total: 30,000 frames for
+8 keys, 3,750 for 64, and 240 for 1,000. Longer small-collection runs avoid
+sub-millisecond timing batches. Each simulated frame advances time by 8,333 µs.
+
+| Keys | Direct median ns/object | Motions median ns/object | Motions time per batch call |
+| --- | ---: | ---: | ---: |
+| 8 | 307.9–318.7 | 307.1–323.9 | 0.0025–0.0026 ms |
+| 64 | 333.4–334.9 | 339.4–339.8 | 0.0217–0.0218 ms |
+| 1,000 | 339.1–340.2 | 347.5–349.1 | 0.3475–0.3491 ms |
+
+These workloads include declaration/result array traffic and are not directly
+comparable to the older `sampling` benchmark. [Full output, including batch P95](docs/performance/2026-10-19-motions.txt).
+
+The benchmark's allocator counter measures live requested bytes during prepared
+collection construction, including the hash table and separately allocated states.
+It excludes allocator bookkeeping, key-owned allocations (keys here are integers),
+UI resources, GPU storage, and process RSS. The portable owner occupies 72 bytes
+on this target; native clock fields are additional.
+
+| Retained keys | Hash table capacity | Collection requested heap | Direct state bytes |
+| --- | ---: | ---: | ---: |
+| 8 | 14 | 12,312 | 11,968 |
+| 64 | 112 | 98,440 | 95,744 |
+| 1,000 | 1,792 | 1,538,824 | 1,496,000 |
+
+An initial inline-table implementation reserved 3,098,632 bytes for 1,000 entries.
+[Exploratory inline-table output](docs/performance/2026-10-19-motions-inline-baseline.txt)
+uses shorter small-collection timing batches; only its memory numbers are used
+for this storage comparison. Keeping each large state behind a `Box` reduced
+requested storage to roughly 1.47 MiB, instead of 2.96 MiB. The tradeoff is one
+allocation for each new key. `with_capacity` reserves only table storage.
+
+The allocation test covers prepared batch/single sampling, spring interruption,
+reordering, removal, retention and clearing: zero allocations inside its measured
+loop. Removal frees the owned state immediately; `clear` frees states while
+retaining table storage. `shrink_to_fit` releases unused table storage. There is
+no fixed animation-count limit or automatic eviction policy.
+
+### Native collection scene
+
+Scene 10 uses the production gallery on each backend's TestPlatform. It combines
+a three-entry panel/title/progress batch with a conditional single-entry notice,
+including interrupted exits and explicit removal. Each run measures five batches
+of 240 frames after 24 warmup frames, advancing the executor at 120 Hz and toggling
+Play every 24 frames. Timings include gallery controls, element construction,
+layout, and paint preparation.
+
+| Backend | Median batch mean, ms/frame | Frame P95, ms |
+| --- | ---: | ---: |
+| CE | 0.365–0.474 | 0.443–1.374 |
+| Kit | 0.692–0.725 | 0.775–0.931 |
+
+[Complete native output](docs/performance/2026-10-19-motions-native.txt).
+TestPlatform substitutes font/display/GPU services. These measurements exclude
+GPU submission/execution and display latency; they do not establish actual FPS.
+
+Shared native fixtures verify identical batch timestamps, position/velocity
+continuity through reordering and interruption, native layout rounded to physical
+pixels, exactly one queued frame callback per active batch, no callbacks after
+settling/omission/reduced motion, and explicit exit cleanup. Production-gallery
+click tests run on both backends and ensure completed notices are not recreated.
+Both macOS apps were also launched: selecting Collection and clicking Play/reverse
+visibly expanded/collapsed the panel and entered/removed the notice. Accessibility
+click automation was inconsistent; screenshot-based coordinate clicks verified
+live behavior. GPU timing and other operating systems remain unprofiled.
+
+Reproduce from the repository root:
+
+```sh
+cargo bench --locked --no-default-features --bench motions
+cargo bench --locked --no-default-features --bench motions -- --reverse
+cargo bench --locked --features demo,native-tests --bench motion_lab
+cargo bench --manifest-path integrations/gpui-kit/Cargo.toml --locked --features demo,native-tests --bench motion_lab
+```

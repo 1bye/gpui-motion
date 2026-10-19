@@ -8,7 +8,7 @@ use std::time::{Duration, Instant};
 use ui::AppContext;
 
 fn main() {
-    for scene in [0, 1, 2, 5, 6, 7, 8] {
+    for scene in [0, 1, 2, 5, 6, 7, 8, 9] {
         let mut batches = Vec::new();
         let mut frames = Vec::new();
 

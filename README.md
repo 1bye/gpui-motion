@@ -10,9 +10,8 @@ transitions, springs, and interruptions using stock GPUI CE—no React or render
 [Demos](docs/DEVELOPMENT.md#demos) · [GPUI Kit setup](#gpui-kit) ·
 [Changelog](CHANGELOG.md)
 
-Version **0.3.0** adds reactive values, nested orchestration, typed timelines,
-measured spatial helpers, SVG preparation, and richer text/numbers.
-The nine-scene `motion_lab` demonstrates them.
+Version **0.4.0** adds `Motions<K>` for keyed transitions, synchronized batch
+sampling, and explicit cleanup. Explore it in scene **10 Collection** of `motion_lab`.
 
 ## Install
 
@@ -20,7 +19,7 @@ For **GPUI Kit**, use [`gpui-motion-kit`](#gpui-kit). The installation below is 
 
 ```toml
 [dependencies]
-gpui-ce-motion = { version = "0.3", features = ["gpui"] }
+gpui-ce-motion = { version = "0.4", features = ["gpui"] }
 ```
 
 Requires **Rust 1.95+**. Native adapters use **registry `gpui-ce =0.2.2`**. Use the
@@ -103,13 +102,9 @@ With portable sampling, `sample(..., now, reduced_motion)` takes elapsed time an
 the user's reduced-motion preference. In a GPUI view, `frame(..., window, cx)`
 handles the clock, frame requests, and that preference for you.
 
-- **New shared tools:** [Reactive values](#reactive-values-and-subscriptions),
-  [nested sequences](#parent-and-child-sequences), [typed timelines](#typed-clips-and-mixed-timelines),
-  [completion](#completion-futures), [measured interaction](#measured-drag-bounds-handles-and-pinch),
-  [spatial reorder](#spatial-reorder-and-edge-scrolling), [cross-container movement](#cross-container-shared-movement),
-  [path preparation](#svg-path-preparation-and-following), [rich text](#native-rich-text-and-formatted-numbers).
 - **Animation:** [Targets](#targets-and-transitions), [timing](#timing),
-  [enter and exit](#enter-and-exit), [keyed presence](#keyed-presence).
+  [enter and exit](#enter-and-exit), [multiple animations](#multiple-animations-with-motions),
+  [keyed presence](#keyed-presence).
 - **Playback:** [Clips](#clips-and-playback), [timelines and stagger](#timelines-and-stagger),
   [variants](#variants).
 - **Interaction:** [Gestures](#native-gestures), [dragging](#dragging),
@@ -119,6 +114,11 @@ handles the clock, frame requests, and that preference for you.
 - **Drawing:** [Styles](#style-animation), [text and numbers](#text-motion),
   [SVG transforms](#svg-transforms),
   [vector paths](#vector-paths), [motion values](#motion-values), [colors](#colors).
+- **New shared tools:** [Reactive values](#reactive-values-and-subscriptions),
+  [nested sequences](#parent-and-child-sequences), [typed timelines](#typed-clips-and-mixed-timelines),
+  [completion](#completion-futures), [measured interaction](#measured-drag-bounds-handles-and-pinch),
+  [spatial reorder](#spatial-reorder-and-edge-scrolling), [cross-container movement](#cross-container-shared-movement),
+  [path preparation](#svg-path-preparation-and-following), [rich text](#native-rich-text-and-formatted-numbers).
 - **Reference:** [Lifecycle and accessibility](#lifecycle-and-accessibility),
   [validation](#validation), [all public exports](#public-export-index).
 
@@ -299,6 +299,136 @@ fn panel(state: &mut MotionState, open: bool, window: &mut Window, cx: &App) -> 
 Use `frame.presence()` to inspect `Entering`, `Present`, `Exiting`, or `Absent`.
 Before removing a focused control, restore focus elsewhere. Guard outgoing event
 handlers with `frame.is_present()`; rendering an exit does not disable its input.
+
+## Multiple animations with Motions
+
+Keep one `Motions<Part>` field when a component animates several independent
+parts. Each key owns its own ordinary `MotionState` internally. The collection
+simplifies ownership; it does not make independent trajectories share a spring.
+
+```rust
+use gpui::{Context, Render, Window, div, prelude::*};
+use gpui_ce_motion::{Motion, Motions, Target};
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+enum Part {
+    Panel,
+    Title,
+}
+
+#[derive(Default)]
+struct Card {
+    expanded: bool,
+    motions: Motions<Part>,
+}
+
+impl Render for Card {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let width = if self.expanded { 320.0 } else { 180.0 };
+
+        let opacity = if self.expanded { 1.0 } else { 0.5 };
+
+        let panel_motion = Motion::new(Target::default().width(width));
+
+        let title_motion = Motion::new(Target::default().opacity(opacity));
+
+        let [panel, title] = self.motions.frame(
+            [
+                (Part::Panel, panel_motion),
+                (Part::Title, title_motion),
+            ],
+            window,
+            cx,
+        );
+
+        panel.apply(
+            div().p_4().child(
+                title.apply(div().child("Project details")),
+            ),
+        )
+    }
+}
+```
+
+Change `expanded` from your input handler and call `cx.notify()`. Both entries
+sample at one timestamp. Springs preserve position and velocity on interruption;
+per-entry delays, transitions, property overrides, and presence work as usual.
+A native batch queues at most one animation-frame request, and none when all
+returned frames are settled or absent. Reduced motion snaps submitted entries.
+
+Results follow the array order; history belongs to the keys. Reordering entries
+is safe. Keys need `Eq + Hash`, not `Clone` or `Default`; use enums or stable item
+IDs rather than a list's current indices. Duplicate keys in one batch panic as a
+programmer error. A batch is not transactional: earlier entries may be sampled
+before a duplicate is encountered. Use small array batches for fixed parts;
+`frame_one` is also convenient for individual entries or dynamic list loops.
+
+### Explicit cleanup
+
+Omitting a key neither deletes it nor pauses its clock. It does not request frames
+while omitted; when submitted again, its old trajectory is evaluated at the new
+time. To animate removal, keep declaring `present(false)` until its frame is
+absent, then remove the key. Do not recreate an already-cleaned outgoing entry:
+
+```rust
+use gpui::{AnyElement, App, Empty, Window, div, prelude::*};
+use gpui_ce_motion::{Motion, Motions, Target};
+
+fn notice(
+    motions: &mut Motions<&'static str>,
+    visible: bool,
+    window: &mut Window,
+    cx: &App,
+) -> AnyElement {
+    if !visible && !motions.contains_key(&"notice") {
+        return Empty.into_any_element();
+    }
+
+    let declaration = Motion::new(Target::default())
+        .initial(Target::default().y(8.0).opacity(0.0))
+        .exit(Target::default().y(-8.0).opacity(0.0))
+        .present(visible);
+
+    let frame = motions.frame_one("notice", declaration, window, cx);
+
+    if !frame.is_mounted() {
+        motions.remove(&"notice");
+    }
+
+    frame.render(|frame| frame.apply(div().child("Changes saved")))
+}
+```
+
+Re-entry during an exit preserves momentum. Removing a key cancels it immediately;
+reusing it starts fresh from `initial`. Guard input and restore focus for interactive
+exits, just as with individual states.
+
+| Method | Contract |
+| --- | --- |
+| `new()` / `default()` | Empty owner; no allocation |
+| `with_capacity(n)` / `reserve(additional)` | Reserve table storage without creating trajectories |
+| `frame([(key, motion), ...], window, cx)` | Fixed-size array in, same-size array of native frames out |
+| `frame_one(key, motion, window, cx)` | Sample one native entry |
+| `sample(batch, now, reduced_motion)` / `sample_one(key, motion, now, reduced_motion)` | Explicit elapsed `Duration`; backward times clamp; do not mix with native clocks |
+| `len()` / `is_empty()` / `contains_key(&key)` | Inspect retained membership, including settled and absent entries |
+| `remove(&key)` | Cancel immediately; return whether the key existed |
+| `retain(keep)` | Cancel entries rejected by the predicate; does not wait for exits |
+| `clear()` | Cancel all entries; keep allocated table capacity and the clock |
+| `capacity()` / `shrink_to_fit()` | Inspect capacity / release unused table storage |
+
+Existing entries reuse storage. Each new key allocates one state; the table may
+also grow. `with_capacity` reserves table space, not those states. Keys that
+allocate when constructed remain the caller's cost. Array inputs and outputs use O(batch size)
+stack storage. `retain` visits table capacity; do cleanup/reservation outside hot
+loops. Dropping the owner releases all its storage. `Motions` covers ordinary
+six-channel `Motion` declarations; text, SVG, styles and typed playback retain
+their specialized APIs. A graph is still useful when many effects derive from
+one progress value.
+
+Try **10 Collection** in `motion_lab` on either backend: expand/reverse the panel,
+watch its independently animated title and progress, and dismiss/re-enter the notice.
+Its outgoing state is removed only after the exit completes. See the
+[sampling, memory and native measurements](PERFORMANCE.md#keyed-collections--2026-10-19).
 
 ## Keyed presence
 
@@ -1552,6 +1682,7 @@ latest published version until this checkout is released.
 
 | Group | Public exports | Feature |
 | --- | --- | --- |
+| [collection](src/motions.rs) | `Motions` | None; native `frame` with gpui |
 | [motion](src/motion.rs) | `Frame`, `Motion`, `MotionState`, `Presence`, `Property`, `Target` | None |
 | [transitions](src/transition.rs) | `Bezier`, `CustomEasing`, `Easing`, `InvalidEasing`, `InvalidSpring`, `Spring`, `Transition` | None |
 | [values](src/value.rs) | `Inertia`, `MotionValue`, `ValueFrame` | None |
@@ -1618,7 +1749,7 @@ No direct `gpui-ce-motion` dependency or CE-specific `gpui` feature is needed.
 
 ```toml
 [dependencies]
-gpui-motion-kit = "0.4"
+gpui-motion-kit = "0.5"
 gpui-kit = { version = "=0.7.3", features = ["component", "assets"] }
 ```
 
@@ -1631,7 +1762,8 @@ The [Kit README](integrations/gpui-kit/README.md) includes a complete runnable
 button/panel application and examples for enter/exit, animated text and numbers,
 position-only layout, and scalar values. Kit 0.3.0 added native style,
 gesture/scroll, measured sizing, reorder/popped-exit/shared-position, clip/timeline
-and SVG helpers. Kit 0.4.0 adds the expanded shared engine and Motion lab.
+and SVG helpers. Kit 0.4.0 added the expanded shared engine and Motion lab;
+Kit 0.5.0 adds keyed `Motions` collections over core 0.4.0.
 The [API reference](https://docs.rs/gpui-motion-kit/latest/gpui_motion_kit/)
 and Kit README document these helpers and the stock renderer's filter/transform
 limits.

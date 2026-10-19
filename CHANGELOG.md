@@ -1,5 +1,16 @@
 # Changelog
 
+## Core 0.4.0 / Kit 0.5.0 — 2026-10-19
+
+- Add shared `Motions<K>` ownership, synchronized array batches, independent spring
+  interruption, single-entry sampling, explicit cleanup, and capacity controls.
+- Add CE and Kit native clocks and frames, one frame request per active batch,
+  reduced-motion handling, and a shared collection scene in both Motion labs.
+- Cover identity, lifecycle, cleanup, allocations, native scheduling, and demo
+  interactions; compare keyed sampling/memory with direct states in benchmarks.
+- Reorder both READMEs to introduce single-animation and enter/exit basics before
+  collections, keeping the complete API examples and cleanup guidance together.
+
 ## Core 0.3.0 / Kit 0.4.0 — 2026-10-19
 
 - Shared reactive value graph, typed subscriptions and lifecycle events.

@@ -1,10 +1,11 @@
 //! Declarative transitions with retained, explicitly owned motion state.
 //!
-//! Keep one [`MotionState`] per logical object in its owning view. Recreate the
-//! [`Motion`] description each render; changing a target interrupts from the
-//! current presentation. Springs also preserve velocity. No tasks, allocations,
-//! global registries, or timers are needed to sample motion. Prepared clips and
-//! timelines allocate during construction; their sampling reuses retained state.
+//! Keep one [`MotionState`] per logical object, or a keyed [`Motions`] collection
+//! in its owning view. Recreate the [`Motion`] description each render; changing
+//! a target interrupts from the current presentation. Springs also preserve
+//! velocity. Sampling existing state needs no tasks, allocations, global registries,
+//! or timers. New collection keys, clips, and timelines may allocate during
+//! preparation; their sampling reuses retained state.
 //!
 //! ```
 //! use gpui_ce_motion::{Motion, MotionState, Target, Transition};
@@ -51,6 +52,7 @@ mod layout;
 #[cfg(feature = "gpui")]
 mod layout_native;
 mod motion;
+mod motions;
 mod presence;
 mod svg;
 mod transition;
@@ -60,6 +62,8 @@ mod value;
 mod native;
 
 pub use motion::{Frame, Motion, MotionState, Presence, Property, Target};
+
+pub use motions::Motions;
 
 pub use transition::{
     Bezier, CustomEasing, Easing, InvalidEasing, InvalidSpring, Spring, Transition,

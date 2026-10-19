@@ -1,0 +1,44 @@
+$ cargo bench --locked --features demo,native-tests --bench motion_lab
+    Finished `bench` profile [optimized] target(s) in 0.96s
+     Running benches/motion_lab.rs (target/release/deps/motion_lab-95727c9e75ceefd7)
+lab scene 01: median batch mean 0.289 ms/frame; frame P95 0.348 ms; 5 x 240 frames
+lab scene 02: median batch mean 0.348 ms/frame; frame P95 0.412 ms; 5 x 240 frames
+lab scene 03: median batch mean 0.285 ms/frame; frame P95 0.314 ms; 5 x 240 frames
+lab scene 06: median batch mean 0.884 ms/frame; frame P95 1.016 ms; 5 x 240 frames
+lab scene 07: median batch mean 0.306 ms/frame; frame P95 0.321 ms; 5 x 240 frames
+lab scene 08: median batch mean 0.353 ms/frame; frame P95 0.400 ms; 5 x 240 frames
+lab scene 09: median batch mean 0.391 ms/frame; frame P95 0.459 ms; 5 x 240 frames
+lab scene 10: median batch mean 0.365 ms/frame; frame P95 0.443 ms; 5 x 240 frames
+$ cargo bench --locked --features demo,native-tests --bench motion_lab --manifest-path integrations/gpui-kit/Cargo.toml
+    Finished `bench` profile [optimized] target(s) in 1.82s
+     Running benches/motion_lab.rs (integrations/gpui-kit/target/release/deps/motion_lab-9b141c6617adb924)
+lab scene 01: median batch mean 0.696 ms/frame; frame P95 0.879 ms; 5 x 240 frames
+lab scene 02: median batch mean 0.699 ms/frame; frame P95 0.974 ms; 5 x 240 frames
+lab scene 03: median batch mean 0.675 ms/frame; frame P95 0.845 ms; 5 x 240 frames
+lab scene 06: median batch mean 1.419 ms/frame; frame P95 1.666 ms; 5 x 240 frames
+lab scene 07: median batch mean 0.662 ms/frame; frame P95 0.808 ms; 5 x 240 frames
+lab scene 08: median batch mean 0.704 ms/frame; frame P95 0.805 ms; 5 x 240 frames
+lab scene 09: median batch mean 0.733 ms/frame; frame P95 0.825 ms; 5 x 240 frames
+lab scene 10: median batch mean 0.692 ms/frame; frame P95 0.775 ms; 5 x 240 frames
+$ cargo bench --locked --features demo,native-tests --bench motion_lab --manifest-path integrations/gpui-kit/Cargo.toml
+    Finished `bench` profile [optimized] target(s) in 1.30s
+     Running benches/motion_lab.rs (integrations/gpui-kit/target/release/deps/motion_lab-9b141c6617adb924)
+lab scene 01: median batch mean 0.617 ms/frame; frame P95 0.671 ms; 5 x 240 frames
+lab scene 02: median batch mean 0.689 ms/frame; frame P95 0.783 ms; 5 x 240 frames
+lab scene 03: median batch mean 0.626 ms/frame; frame P95 0.688 ms; 5 x 240 frames
+lab scene 06: median batch mean 1.390 ms/frame; frame P95 1.563 ms; 5 x 240 frames
+lab scene 07: median batch mean 0.650 ms/frame; frame P95 0.727 ms; 5 x 240 frames
+lab scene 08: median batch mean 0.691 ms/frame; frame P95 0.747 ms; 5 x 240 frames
+lab scene 09: median batch mean 0.742 ms/frame; frame P95 0.893 ms; 5 x 240 frames
+lab scene 10: median batch mean 0.725 ms/frame; frame P95 0.931 ms; 5 x 240 frames
+$ cargo bench --locked --features demo,native-tests --bench motion_lab
+    Finished `bench` profile [optimized] target(s) in 1.13s
+     Running benches/motion_lab.rs (target/release/deps/motion_lab-95727c9e75ceefd7)
+lab scene 01: median batch mean 0.280 ms/frame; frame P95 0.295 ms; 5 x 240 frames
+lab scene 02: median batch mean 0.386 ms/frame; frame P95 0.994 ms; 5 x 240 frames
+lab scene 03: median batch mean 0.287 ms/frame; frame P95 0.328 ms; 5 x 240 frames
+lab scene 06: median batch mean 0.940 ms/frame; frame P95 1.077 ms; 5 x 240 frames
+lab scene 07: median batch mean 0.335 ms/frame; frame P95 0.689 ms; 5 x 240 frames
+lab scene 08: median batch mean 0.439 ms/frame; frame P95 0.932 ms; 5 x 240 frames
+lab scene 09: median batch mean 0.553 ms/frame; frame P95 1.416 ms; 5 x 240 frames
+lab scene 10: median batch mean 0.474 ms/frame; frame P95 1.374 ms; 5 x 240 frames

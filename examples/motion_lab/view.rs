@@ -9,9 +9,9 @@ use gpui_ce_motion::{
 };
 
 use motion::{
-    Axis, GestureState, GraphState, MotionAnchor, MotionState, MotionTreeState, NumberMotionState,
-    ReorderGroup, ScrollTracker, SharedOverlay, SvgMotionState, TextMotionState, TypedTimeline,
-    VectorState,
+    Axis, GestureState, GraphState, MotionAnchor, MotionState, MotionTreeState, Motions,
+    NumberMotionState, ReorderGroup, ScrollTracker, SharedOverlay, SvgMotionState, TextMotionState,
+    TypedTimeline, VectorState,
 };
 
 use std::{cell::Cell, rc::Rc, time::Duration};
@@ -21,7 +21,7 @@ use ui::{
     prelude::*, px, rgb,
 };
 
-const SCENES: [&str; 9] = [
+const SCENES: [&str; 10] = [
     "Connected",
     "Sequence",
     "Timeline",
@@ -31,6 +31,7 @@ const SCENES: [&str; 9] = [
     "Transfer",
     "Paths",
     "Typography",
+    "Collection",
 ];
 
 fn spring() -> Transition {
@@ -58,6 +59,14 @@ fn tile(id: usize) -> ui::Stateful<ui::Div> {
         .items_center()
         .justify_center()
         .child(format!("{:02}", id + 1))
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+enum Part {
+    Panel,
+    Title,
+    Progress,
+    Notice,
 }
 
 pub struct Lab {
@@ -96,6 +105,7 @@ pub struct Lab {
     rich: [RichText; 2],
     format: NumberFormat,
     numeric: MotionState,
+    motions: Motions<Part>,
 }
 
 impl Lab {
@@ -273,6 +283,7 @@ impl Lab {
                 .decimal(",")
                 .grouping(" ", 3, 3),
             numeric: MotionState::default(),
+            motions: Motions::with_capacity(4),
         }
     }
 
@@ -310,6 +321,103 @@ impl Lab {
 
     pub(crate) fn select_scene(&mut self, scene: usize) {
         self.scene = scene;
+    }
+
+    fn collection(&mut self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
+        // Numeric targets resolve the gallery's rem scale into logical pixels.
+        let unit = f32::from(window.rem_size());
+        let width = if self.forward { 24. } else { 18. } * unit;
+
+        let panel_motion = Motion::new(Target::default().width(width).height(13. * unit))
+            .initial(Target::default().width(18. * unit).height(13. * unit))
+            .transition(spring());
+
+        let title_motion = Motion::new(
+            Target::default()
+                .y(if self.forward { 0. } else { 0.4 * unit })
+                .opacity(if self.forward { 1. } else { 0.65 }),
+        )
+        .transition(spring());
+
+        let progress_motion =
+            Motion::new(Target::default().width(if self.forward { 18. * unit } else { 5. * unit }))
+                .initial(Target::default().width(5. * unit))
+                .transition(spring());
+
+        let [panel, title, progress] = self.motions.frame(
+            [
+                (Part::Panel, panel_motion),
+                (Part::Title, title_motion),
+                (Part::Progress, progress_motion),
+            ],
+            window,
+            cx,
+        );
+
+        let mut stage = div().w_96().h_80().flex().flex_col().gap_4().child(
+            panel.apply(
+                div()
+                    .id("collection-panel")
+                    .debug_selector(|| "collection-panel".into())
+                    .rounded_xl()
+                    .bg(rgb(0x1c241c))
+                    .flex_shrink_0()
+                    .p_6()
+                    .flex()
+                    .flex_col()
+                    .justify_between()
+                    .child(
+                        title.apply(
+                            div()
+                                .flex()
+                                .flex_col()
+                                .gap_2()
+                                .child(div().text_xl().child("A little room to grow."))
+                                .child(
+                                    div()
+                                        .text_sm()
+                                        .text_color(rgb(0xa3b19c))
+                                        .child("Your next release"),
+                                ),
+                        ),
+                    )
+                    .child(progress.apply(div().h_2().rounded_full().bg(rgb(0xd8f58b)))),
+            ),
+        );
+
+        // Keep declaring the outgoing notice until it is absent, then release its key.
+        if self.forward || self.motions.contains_key(&Part::Notice) {
+            let notice_motion = Motion::new(Target::default())
+                .initial(Target::default().y(0.5 * unit).opacity(0.))
+                .exit(Target::default().y(-0.5 * unit).opacity(0.))
+                .present(self.forward)
+                .transition(spring());
+
+            let notice = self
+                .motions
+                .frame_one(Part::Notice, notice_motion, window, cx);
+
+            if !notice.is_mounted() {
+                self.motions.remove(&Part::Notice);
+            }
+
+            stage = stage.child(notice.render(|frame| {
+                frame.apply(
+                    div()
+                        .id("collection-notice")
+                        .debug_selector(|| "collection-notice".into())
+                        .role(Role::Status)
+                        .rounded_lg()
+                        .bg(rgb(0xd8f58b))
+                        .text_color(rgb(0x182018))
+                        .px_4()
+                        .py_3()
+                        .child("Ready to share"),
+                )
+            }));
+        }
+
+        stage.into_any_element()
     }
 
     fn stage(&mut self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
@@ -700,6 +808,7 @@ impl Lab {
                         .text_size(px(64.)),
                 )
                 .into_any_element(),
+            9 => self.collection(window, cx),
             _ => unreachable!(),
         }
     }
@@ -848,6 +957,72 @@ mod tests {
                 })
                 .unwrap();
         }
+    }
+
+    #[ui::test]
+    fn collection_notice_exits_before_its_state_is_removed(cx: &mut ui::TestAppContext) {
+        crate::init_test(cx);
+        cx.update(|cx| cx.set_reduce_motion(false));
+        let window = cx.open_window(ui::size(px(960.), px(640.)), |_, _| {
+            let mut lab = Lab::new();
+
+            lab.select_scene(9);
+
+            lab
+        });
+
+        cx.update_window(window.into(), |_, window, _| window.activate_window())
+            .unwrap();
+        cx.run_until_parked();
+        draw(cx, window);
+        assert_eq!(
+            window.update(cx, |view, _, _| view.motions.len()).unwrap(),
+            3
+        );
+        let position = ui::VisualTestContext::from_window(window.into(), cx)
+            .debug_bounds("play")
+            .unwrap()
+            .center();
+
+        ui::VisualTestContext::from_window(window.into(), cx)
+            .simulate_click(position, ui::Modifiers::default());
+        draw(cx, window);
+        cx.executor().advance_clock(Duration::from_millis(100));
+        draw(cx, window);
+        assert_eq!(
+            window.update(cx, |view, _, _| view.motions.len()).unwrap(),
+            4
+        );
+        assert!(
+            ui::VisualTestContext::from_window(window.into(), cx)
+                .debug_bounds("collection-notice")
+                .is_some()
+        );
+        ui::VisualTestContext::from_window(window.into(), cx)
+            .simulate_click(position, ui::Modifiers::default());
+        draw(cx, window);
+        assert_eq!(
+            window.update(cx, |view, _, _| view.motions.len()).unwrap(),
+            4
+        );
+        cx.executor().advance_clock(Duration::from_secs(3));
+        draw(cx, window);
+        assert_eq!(
+            window.update(cx, |view, _, _| view.motions.len()).unwrap(),
+            3
+        );
+        assert!(
+            ui::VisualTestContext::from_window(window.into(), cx)
+                .debug_bounds("collection-notice")
+                .is_none()
+        );
+        // Rendering again must not recreate the already-cleaned outgoing entry.
+        window.update(cx, |_, _, cx| cx.notify()).unwrap();
+        draw(cx, window);
+        assert_eq!(
+            window.update(cx, |view, _, _| view.motions.len()).unwrap(),
+            3
+        );
     }
 
     #[ui::test]

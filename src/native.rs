@@ -1,6 +1,6 @@
 use gpui::{AnyElement, App, Empty, IntoElement, Styled, Window, px};
 
-use crate::{Frame, Motion, MotionState};
+use crate::{Frame, Motion, MotionState, Motions};
 
 impl MotionState {
     /// Samples native monotonic time and GPUI's reduced-motion flag. Call only
@@ -198,5 +198,43 @@ impl crate::SvgFrame {
     /// ```
     pub fn apply(self, element: gpui::Svg) -> gpui::Svg {
         element.with_transformation(self.transformation())
+    }
+}
+
+impl<K: Eq + std::hash::Hash> Motions<K> {
+    /// Samples a batch during render using one executor timestamp and the native
+    /// reduced-motion preference. Requests one frame if any returned frame is active.
+    /// Omitted entries do not request frames. Notify the owner after input changes.
+    /// Do not mix this clock with explicit `sample` timestamps.
+    ///
+    /// # Panics
+    /// Panics on duplicate keys, as described by [`Self::sample`].
+    pub fn frame<const N: usize>(
+        &mut self,
+        declarations: [(K, Motion); N],
+        window: &mut Window,
+        cx: &App,
+    ) -> [Frame; N] {
+        let clock = cx.background_executor().now();
+        let epoch = *self.epoch.get_or_insert(clock);
+
+        let frames = self.sample(
+            declarations,
+            clock.saturating_duration_since(epoch),
+            cx.reduce_motion(),
+        );
+
+        if frames.iter().any(|frame| frame.is_animating()) {
+            window.request_animation_frame();
+        }
+
+        frames
+    }
+
+    /// Samples one native entry. Use [`Self::frame`] to synchronize several entries.
+    pub fn frame_one(&mut self, key: K, motion: Motion, window: &mut Window, cx: &App) -> Frame {
+        let [frame] = self.frame([(key, motion)], window, cx);
+
+        frame
     }
 }

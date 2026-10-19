@@ -237,3 +237,41 @@ fn prepared_graph_tree_typed_tracks_and_path_queries_sample_without_allocating()
 
     assert_eq!(count, 0);
 }
+
+#[test]
+fn prepared_keyed_batches_retarget_reorder_and_cleanup_without_allocating() {
+    let mut motions = Motions::with_capacity(16);
+
+    let declaration = |key| {
+        (
+            key,
+            Motion::new(Target::default().x(100.)).initial(Target::default()),
+        )
+    };
+
+    motions.sample(
+        std::array::from_fn::<_, 16, _>(declaration),
+        Duration::ZERO,
+        false,
+    );
+    COUNT.with(|count| count.set(Some(0)));
+
+    for i in 0..240 {
+        let now = Duration::from_millis(i * 8);
+        let destination = if i % 24 < 12 { 100. } else { -100. };
+
+        let batch = std::array::from_fn::<_, 16, _>(|key| {
+            (15 - key, Motion::new(Target::default().x(destination)))
+        });
+
+        std::hint::black_box(motions.sample(batch, now, false));
+        std::hint::black_box(motions.sample_one(0, Motion::new(Target::default()), now, false));
+    }
+
+    motions.remove(&0);
+    motions.retain(|key| *key < 8);
+    motions.clear();
+    let count = COUNT.with(|count| count.replace(None).unwrap());
+
+    assert_eq!(count, 0);
+}

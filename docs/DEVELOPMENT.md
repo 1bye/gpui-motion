@@ -19,6 +19,7 @@ Replace `motion_showcase` with any example below:
 | Example | What to explore |
 | --- | --- |
 | [motion_showcase](../examples/motion_showcase.rs) | Seven experiments on a recording canvas, manual scrolling, draggable tabs |
+| [motion_lab](../examples/motion_lab.rs) | Ten scenes on CE/Kit; scene 10 demonstrates keyed batches, interruption, and explicit exit cleanup |
 | [motion](../examples/motion.rs) | Entrance/exit, interrupted movement, dimensions/radius, spring/tween timing |
 | [sidebar](../examples/sidebar.rs) | Collapsing app sidebar, content reflow, focus restoration |
 | [motion_features](../examples/motion_features.rs) | Keyframes, timeline controls, variants, colors, drag, scroll, keyed presence |
@@ -81,6 +82,8 @@ cargo test --locked --no-default-features
 cargo test --locked --no-default-features --features text
 cargo test --locked --features gpui
 cargo test --locked --features demo,native-tests
+cargo test --locked --features demo,native-tests --example motion_lab
+cargo bench --locked --no-default-features --bench motions
 cargo test --locked --features demo,native-tests --example motion_showcase
 cargo clippy --locked --all-targets --features demo,native-tests -- -D warnings
 RUSTDOCFLAGS="-D warnings" cargo doc --locked --no-deps --features gpui

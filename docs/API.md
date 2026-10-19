@@ -15,6 +15,10 @@ the quick start. All examples and the public export index are on that page.
 
 [Read enter and exit in the README](../README.md#enter-and-exit).
 
+## Multiple animations
+
+[Read keyed batches and explicit cleanup in the README](../README.md#multiple-animations-with-motions).
+
 ## Keyed presence
 
 [Read keyed presence in the README](../README.md#keyed-presence).

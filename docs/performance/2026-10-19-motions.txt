@@ -1,0 +1,27 @@
+$ cargo bench --locked --no-default-features --bench motions
+   Compiling gpui-ce-motion v0.3.0 (/Users/yuriihulyk/Documents/GitHub/gpui-motion)
+    Finished `bench` profile [optimized] target(s) in 2.37s
+     Running benches/motions.rs (target/release/deps/motions-bec5fd9e88d7bf72)
+portable stack bytes: MotionState 1496, Motions<usize> 72 (collection heap reported separately)
+8 keys: capacity 14, requested collection heap 12312 bytes; direct state bytes 11968
+direct / 8: median 318.7 ns/object, batch P95 495.8 ns/object; 0.003 ms/frame
+Motions / 8: median 323.9 ns/object, batch P95 355.4 ns/object; 0.003 ms/frame
+64 keys: capacity 112, requested collection heap 98440 bytes; direct state bytes 95744
+direct / 64: median 334.9 ns/object, batch P95 414.8 ns/object; 0.021 ms/frame
+Motions / 64: median 339.4 ns/object, batch P95 340.9 ns/object; 0.022 ms/frame
+1000 keys: capacity 1792, requested collection heap 1538824 bytes; direct state bytes 1496000
+direct / 1000: median 340.2 ns/object, batch P95 347.7 ns/object; 0.340 ms/frame
+Motions / 1000: median 349.1 ns/object, batch P95 401.1 ns/object; 0.349 ms/frame
+$ cargo bench --locked --no-default-features --bench motions -- --reverse
+    Finished `bench` profile [optimized] target(s) in 0.26s
+     Running benches/motions.rs (target/release/deps/motions-bec5fd9e88d7bf72)
+portable stack bytes: MotionState 1496, Motions<usize> 72 (collection heap reported separately)
+8 keys: capacity 14, requested collection heap 12312 bytes; direct state bytes 11968
+Motions / 8: median 307.1 ns/object, batch P95 311.0 ns/object; 0.002 ms/frame
+direct / 8: median 307.9 ns/object, batch P95 313.3 ns/object; 0.002 ms/frame
+64 keys: capacity 112, requested collection heap 98440 bytes; direct state bytes 95744
+Motions / 64: median 339.8 ns/object, batch P95 347.0 ns/object; 0.022 ms/frame
+direct / 64: median 333.4 ns/object, batch P95 337.8 ns/object; 0.021 ms/frame
+1000 keys: capacity 1792, requested collection heap 1538824 bytes; direct state bytes 1496000
+Motions / 1000: median 347.5 ns/object, batch P95 348.5 ns/object; 0.348 ms/frame
+direct / 1000: median 339.1 ns/object, batch P95 343.4 ns/object; 0.339 ms/frame

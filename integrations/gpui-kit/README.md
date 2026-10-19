@@ -10,16 +10,16 @@ frame scheduling, and reduced-motion preference. No JavaScript or renderer fork.
 [Published API reference](https://docs.rs/gpui-motion-kit/latest/gpui_motion_kit/) ·
 [Product examples](#product-examples) · [Text gallery](#text-gallery)
 
-Version **0.4.0** uses the shared **gpui-ce-motion 0.3.0** engine and adds reactive
-values, nested orchestration, typed timelines, spatial helpers, rich text and
-formatted numbers. Explore the nine-scene `motion_lab` or the
+Version **0.5.0** uses the shared **gpui-ce-motion 0.4.0** engine and adds
+`Motions<K>` for keyed transitions, synchronized batches, and explicit cleanup.
+Explore scene **10 Collection** in `motion_lab` or the
 [eight-scene helper gallery](#helper-gallery).
 
 ## Install
 
 ```toml
 [dependencies]
-gpui-motion-kit = "0.4"
+gpui-motion-kit = "0.5"
 gpui-kit = { version = "=0.7.3", features = ["component", "assets"] }
 ```
 
@@ -105,11 +105,11 @@ fn main() {
 }
 ```
 
-`Motion` is a declaration you can recreate each render. `MotionState` is retained
-history: keep one state per logical object. Springs preserve position and velocity
-when interrupted. The adapter requests another frame only while moving; notify
-the view after an input changes its target. The host app supplies Kit's reduced-motion
-preference, which the adapter reads when sampling.
+`Motion` is a declaration you can recreate each render. `MotionState` is its
+retained history: keep one state per logical object. Springs preserve position
+and velocity when interrupted. The adapter requests another frame only while
+moving; notify the view after an input changes its target. The host app supplies
+Kit's reduced-motion preference, which the adapter reads when sampling.
 
 The button keeps its Kit behavior. `Frame::apply` animates its wrapper's relative
 `x`/`y`, opacity, width, height, and border radius. Width and height perform real
@@ -140,6 +140,136 @@ fn details(state: &mut MotionState, open: bool, window: &mut Window, cx: &App) -
 
 Keep `state` on the owner. Before removing focused controls, restore focus to a
 remaining control, and guard outgoing input with `frame.is_present()`.
+
+## Multiple animations with Motions
+
+Keep one `Motions<Part>` field when a component animates several independent
+parts. Each key owns its own ordinary `MotionState` internally. The collection
+simplifies ownership; it does not make independent trajectories share a spring.
+
+```rust
+use gpui_kit::{Context, Render, Window, div, prelude::*};
+use gpui_motion_kit::{Motions, core::{Motion, Target}};
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+enum Part {
+    Panel,
+    Title,
+}
+
+#[derive(Default)]
+struct Card {
+    expanded: bool,
+    motions: Motions<Part>,
+}
+
+impl Render for Card {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let width = if self.expanded { 320.0 } else { 180.0 };
+
+        let opacity = if self.expanded { 1.0 } else { 0.5 };
+
+        let panel_motion = Motion::new(Target::default().width(width));
+
+        let title_motion = Motion::new(Target::default().opacity(opacity));
+
+        let [panel, title] = self.motions.frame(
+            [
+                (Part::Panel, panel_motion),
+                (Part::Title, title_motion),
+            ],
+            window,
+            cx,
+        );
+
+        panel.apply(
+            div().p_4().child(
+                title.apply(div().child("Project details")),
+            ),
+        )
+    }
+}
+```
+
+Change `expanded` from your input handler and call `cx.notify()`. Both entries
+sample at one timestamp. Springs preserve position and velocity on interruption;
+per-entry delays, transitions, property overrides, and presence work as usual.
+A native batch queues at most one animation-frame request, and none when all
+returned frames are settled or absent. Reduced motion snaps submitted entries.
+
+Results follow the array order; history belongs to the keys. Reordering entries
+is safe. Keys need `Eq + Hash`, not `Clone` or `Default`; use enums or stable item
+IDs rather than a list's current indices. Duplicate keys in one batch panic as a
+programmer error. A batch is not transactional: earlier entries may be sampled
+before a duplicate is encountered. Use small array batches for fixed parts;
+`frame_one` is also convenient for individual entries or dynamic list loops.
+
+### Explicit cleanup
+
+Omitting a key neither deletes it nor pauses its clock. It does not request frames
+while omitted; when submitted again, its old trajectory is evaluated at the new
+time. To animate removal, keep declaring `present(false)` until its frame is
+absent, then remove the key. Do not recreate an already-cleaned outgoing entry:
+
+```rust
+use gpui_kit::{AnyElement, App, Empty, Window, div, prelude::*};
+use gpui_motion_kit::{Motions, core::{Motion, Target}};
+
+fn notice(
+    motions: &mut Motions<&'static str>,
+    visible: bool,
+    window: &mut Window,
+    cx: &App,
+) -> AnyElement {
+    if !visible && !motions.contains_key(&"notice") {
+        return Empty.into_any_element();
+    }
+
+    let declaration = Motion::new(Target::default())
+        .initial(Target::default().y(8.0).opacity(0.0))
+        .exit(Target::default().y(-8.0).opacity(0.0))
+        .present(visible);
+
+    let frame = motions.frame_one("notice", declaration, window, cx);
+
+    if !frame.is_mounted() {
+        motions.remove(&"notice");
+    }
+
+    frame.render(|frame| frame.apply(div().child("Changes saved")))
+}
+```
+
+Re-entry during an exit preserves momentum. Removing a key cancels it immediately;
+reusing it starts fresh from `initial`. Guard input and restore focus for interactive
+exits, just as with individual states.
+
+| Method | Contract |
+| --- | --- |
+| `new()` / `default()` | Empty owner; no allocation |
+| `with_capacity(n)` / `reserve(additional)` | Reserve table storage without creating trajectories |
+| `frame([(key, motion), ...], window, cx)` | Fixed-size array in, same-size array of native frames out |
+| `frame_one(key, motion, window, cx)` | Sample one native entry |
+| `sample(batch, now, reduced_motion)` / `sample_one(key, motion, now, reduced_motion)` | Explicit elapsed `Duration`; backward times clamp; do not mix with native clocks |
+| `len()` / `is_empty()` / `contains_key(&key)` | Inspect retained membership, including settled and absent entries |
+| `remove(&key)` | Cancel immediately; return whether the key existed |
+| `retain(keep)` | Cancel entries rejected by the predicate; does not wait for exits |
+| `clear()` | Cancel all entries; keep allocated table capacity and the clock |
+| `capacity()` / `shrink_to_fit()` | Inspect capacity / release unused table storage |
+
+Existing entries reuse storage. Each new key allocates one state; the table may
+also grow. `with_capacity` reserves table space, not those states. Keys that
+allocate when constructed remain the caller's cost. Array inputs and outputs use O(batch size)
+stack storage. `retain` visits table capacity; do cleanup/reservation outside hot
+loops. Dropping the owner releases all its storage. `Motions` covers ordinary
+six-channel `Motion` declarations; text, SVG, styles and typed playback retain
+their specialized APIs. A graph is still useful when many effects derive from
+one progress value.
+
+Try **10 Collection** in `motion_lab` on either backend: expand/reverse the panel,
+watch its independently animated title and progress, and dismiss/re-enter the notice.
+Its outgoing state is removed only after the exit completes. See the
+[sampling, memory and native measurements](../../PERFORMANCE.md#keyed-collections--2026-10-19).
 
 ## Text and numbers
 
@@ -1086,9 +1216,10 @@ MIT OR Apache-2.0. See [LICENSE-MIT](LICENSE-MIT) and [LICENSE-APACHE](LICENSE-A
 ## Motion lab
 
 Run `cargo run --features demo --example motion_lab` from this directory.
-Nine interactive scenes cover connected values, child sequences, mixed timelines,
+Ten interactive scenes cover connected values, child sequences, mixed timelines,
 scroll intersections, measured handles/pinch, grid reorder/autoscroll, cross-container
-transfer, parsed paths/morphs/following, rich labels and currency counters.
+transfer, parsed paths/morphs/following, rich labels and currency counters, and
+keyed batches with explicit notice cleanup.
 
 
 The expanded engine's CPU benchmarks, allocation checks and native acceptance are

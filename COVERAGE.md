@@ -9,6 +9,7 @@ input handlers replace hooks, DOM observation, selectors, and component context.
 | Motion concept | Native implementation | Boundary |
 | --- | --- | --- |
 | Declarative animate / initial / exit | `Motion`, `MotionState`, `Target` | x/y offsets, opacity, numeric width/height/radius |
+| Component-owned keyed transitions | `Motions<K>` | Shared six-channel states, one clock per native array batch, stable IDs, smooth interruption, explicit cancellation/exit cleanup and capacity management; omitted entries stay retained |
 | SVG drawing transforms | `SvgTarget`, `SvgMotion`, `SvgMotionState`, `SvgFrame::{apply,transformation_about}` | Signed scale, unwrapped degrees, x/y drawing translation, center/custom pixel pivot; unchanged native layout/hitbox |
 | Tween, easing, spring, interruption | `Transition`, `Spring`, `Easing`, `Bezier`, `CustomEasing` | Analytic physics; explicit derivative for custom easing; spring interruptions retain position and velocity |
 | Visual spring controls | `Spring::visual`, `Spring::rest` | Native first-90%-arrival timing, damping through bounce, independent distance/speed settling thresholds; not Motion’s exact solver |
@@ -65,7 +66,8 @@ API compatibility or bit-for-bit Motion physics.
 
 - Construct clips/variant tables/timelines once; rebuilding an `Animation` means
   a new trajectory. A clone shares its immutable clip. Sampling allocates no
-  memory, including first bind; preparation/membership changes can allocate.
+  memory for prepared entries; preparation/membership changes, including a new
+  `Motions` key, can allocate.
 - Pass one monotonic application epoch to pure sampling and controls. Native
   `AnimationState::frame` uses its own epoch; use `state.now()` for its controls.
   Backward real timestamps hold; explicit seeks may move the virtual playhead.
@@ -123,13 +125,13 @@ transforms, outline morphs, editable text and variable-font axes remain excluded
 Rich native spans, color/font-size transitions, vertical wipes and fixed-point
 number formatting are supported. Font-size animation performs real shaping/layout.
 
-## GPUI Kit native helpers (gpui-motion-kit 0.4.0)
+## GPUI Kit native helpers (gpui-motion-kit 0.5.0)
 
 Kit 0.7.3's default `gpui-pre` backend has native bindings for motion/presence,
 styles, gestures/drag/in-view, measured scroll mapping, position layout,
 intrinsic sizing, reorder, popped exits, shared position/crossfade, vectors,
 prepared clips/timelines, SVG drawing transforms, text and numbers. Bindings use
-the shared portable engine (core 0.3.0 is required for these additions); no CE native feature or renderer fork is
+the shared portable engine (Kit 0.5.0 requires core 0.4.0); no CE native feature or renderer fork is
 needed. Shared geometry/input regression fixtures run against both adapters.
 
 Kit does not expose CE's public element/backdrop filter API. `StyleFrame::try_apply`

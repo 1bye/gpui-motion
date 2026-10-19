@@ -12,6 +12,7 @@ jobs:
       - run: rustup toolchain install stable --profile minimal --component rustfmt,clippy
       - run: cargo fmt --all --check
       - run: cargo test --locked --no-default-features
+      - run: cargo bench --locked --no-default-features --bench motions
       - run: cargo test --locked --no-default-features --features text,svg-path
       - run: cargo clippy --locked --no-default-features --features text,svg-path --all-targets -- -D warnings
   docs:
@@ -45,6 +46,7 @@ jobs:
           RUSTDOCFLAGS: -D warnings
       - run: cargo build --locked --release --features demo --examples
       - run: python3 scripts/check_packages.py --native-core
+      - run: cargo bench --locked --features demo,native-tests --bench motion_lab
 
   spacing:
     runs-on: macos-latest
