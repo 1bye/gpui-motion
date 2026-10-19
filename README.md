@@ -94,8 +94,9 @@ The examples below cover every public API family. Each example stands on its own
 Native elements require the `gpui` feature and an existing GPUI view.
 
 Keep states, groups, clips, and timelines in your view between renders. Build new
-targets as the UI changes. The native helpers below receive that retained state
-as a function argument; the portable examples use an explicit clock.
+targets as the UI changes. Prepare keyframe clips and parsed/measured paths outside
+`render`; reuse them until their inputs change. The native helpers below receive
+that retained state as a function argument; the portable examples use an explicit clock.
 
 With portable sampling, `sample(..., now, reduced_motion)` takes elapsed time and
 the user's reduced-motion preference. In a GPUI view, `frame(..., window, cx)`
@@ -252,7 +253,8 @@ let transition = Transition::Tween(Duration::from_millis(200), Easing::Bezier(cu
 ```
 
 A custom function returns the easing value and its derivative. Prepare the
-`CustomEasing` once; creating it again gives it a new identity.
+`CustomEasing` once outside `render` and reuse it. Each `CustomEasing::new(...)`
+creates a new identity and can restart transitions, even with the same function.
 
 ```rust
 use gpui_ce_motion::{CustomEasing, Easing, Transition};

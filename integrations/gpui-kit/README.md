@@ -111,6 +111,10 @@ and velocity when interrupted. The adapter requests another frame only while
 moving; notify the view after an input changes its target. The host app supplies
 Kit's reduced-motion preference, which the adapter reads when sampling.
 
+Prepare custom easing, keyframe clips, and parsed/measured paths outside `render`,
+and reuse them until their inputs change. Each `CustomEasing::new(...)` creates a
+new identity and can restart transitions; rebuilding clips and paths repeats setup work.
+
 The button keeps its Kit behavior. `Frame::apply` animates its wrapper's relative
 `x`/`y`, opacity, width, height, and border radius. Width and height perform real
 layout; they are not GPU scale transforms. Applying a corner radius does not
