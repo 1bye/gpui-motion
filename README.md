@@ -1,5 +1,7 @@
 # gpui-ce-motion
 
+<img src="assets/motion-banner.gif" width="100%" alt="gpui-ce-motion — native Rust motion for GPUI CE and GPUI Kit" />
+
 **Declarative animation for native Rust apps on GPUI CE.**
 
 Describe the next state. Keep the motion state in your view. The library handles
