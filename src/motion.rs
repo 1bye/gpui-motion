@@ -242,6 +242,11 @@ impl Motion {
         self
     }
 
+    /// Whether this declaration requests the element to remain present.
+    pub fn is_present(self) -> bool {
+        self.present
+    }
+
     /// Requests mount or removal. Continue sampling while false to finish exit.
     pub fn present(mut self, value: bool) -> Self {
         self.present = value;

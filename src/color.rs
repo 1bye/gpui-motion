@@ -107,3 +107,17 @@ impl ColorState {
         (Color { linear }, active)
     }
 }
+
+impl crate::MotionData<4> for Color {
+    fn channels(self) -> [f64; 4] {
+        self.linear
+    }
+
+    fn with_channels(self, values: [f64; 4]) -> Self {
+        Self { linear: values }
+    }
+
+    fn compatible(self, _: Self) -> bool {
+        true
+    }
+}

@@ -207,7 +207,22 @@ impl ValueState {
 }
 
 mod text {
-    gpui_ce_motion::__motion_text_adapter!(gpui_kit);
+    fn text_color_to_native(color: gpui_ce_motion::Color) -> gpui_kit::Hsla {
+        crate::color_to_rgba(color).into()
+    }
+
+    fn text_color_from_native(color: gpui_kit::Hsla) -> gpui_ce_motion::Color {
+        let color: gpui_kit::Rgba = color.into();
+
+        gpui_ce_motion::Color::rgba(
+            color.r.into(),
+            color.g.into(),
+            color.b.into(),
+            color.a.into(),
+        )
+    }
+
+    gpui_ce_motion::__motion_text_adapter!(gpui_kit, text_color_to_native, text_color_from_native);
 }
 
 pub use gpui_ce_motion::{
@@ -216,3 +231,18 @@ pub use gpui_ce_motion::{
 };
 
 pub use text::{NumberElement, NumberMotionState, TextElement, TextMotionState};
+
+mod typed;
+
+pub use typed::{TypedState, TypedTimeline};
+
+mod spatial {
+    gpui_ce_motion::__motion_spatial_adapter!(gpui_kit, crate);
+}
+
+pub use core::ScrollFrame;
+
+pub use spatial::{
+    AnchorElement, GraphState, MotionAnchor, MotionTreeState, ScrollTracker, SharedOverlay,
+    SharedOverlayElement,
+};

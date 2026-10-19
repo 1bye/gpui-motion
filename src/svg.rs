@@ -231,3 +231,17 @@ impl SvgMotionState {
         }
     }
 }
+
+impl crate::MotionData<5> for SvgTarget {
+    fn channels(self) -> [f64; 5] {
+        self.values
+    }
+
+    fn with_channels(self, values: [f64; 5]) -> Self {
+        Self { values }
+    }
+
+    fn compatible(self, _: Self) -> bool {
+        true
+    }
+}

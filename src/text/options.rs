@@ -52,6 +52,10 @@ pub enum TextPreset {
     WipeRight,
     /// Reveal from the right edge using a stationary mask.
     WipeLeft,
+    /// Reveal vertically from the top edge.
+    WipeDown,
+    /// Reveal vertically from the bottom edge.
+    WipeUp,
     /// Reveal complete units at their stagger times, without partial opacity.
     Typewriter,
 }
@@ -205,6 +209,16 @@ pub enum NumberEffect {
     Interpolate,
 }
 
+/// Axis of an axis-aligned text reveal mask.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum TextRevealAxis {
+    /// Reveal across the unit's width.
+    #[default]
+    Horizontal,
+    /// Reveal across its measured line-height reservation.
+    Vertical,
+}
+
 /// Portable text configuration. Native element builders expose the same options.
 #[derive(Clone, Debug, PartialEq)]
 pub struct TextOptions {
@@ -230,8 +244,10 @@ pub struct TextOptions {
     pub presence_mode: PresenceMode,
     /// Per-unit clipping.
     pub clip: TextClip,
-    /// Horizontal reveal uses the right edge as its anchor.
+    /// Reverses the reveal to anchor at the trailing edge of the selected axis.
     pub wipe_left: bool,
+    /// Axis used by reveals; `wipe_left` chooses the trailing edge on either axis.
+    pub reveal_axis: TextRevealAxis,
     /// Whether the first mounted text enters. Later changes always follow the effect.
     pub animate_initial: bool,
     /// Prepared optional substitutions.
@@ -255,6 +271,7 @@ impl Default for TextOptions {
             presence_mode: PresenceMode::Sync,
             clip: TextClip::None,
             wipe_left: false,
+            reveal_axis: TextRevealAxis::Horizontal,
             animate_initial: true,
             scramble: None,
             animation: None,
@@ -269,6 +286,7 @@ impl TextOptions {
         self.exit = TextTarget::default();
         self.clip = TextClip::None;
         self.wipe_left = false;
+        self.reveal_axis = TextRevealAxis::Horizontal;
         self.opacity_transition = None;
 
         match preset {
@@ -289,7 +307,10 @@ impl TextOptions {
                     Easing::EaseOut,
                 ));
             }
-            TextPreset::WipeRight | TextPreset::WipeLeft => {
+            TextPreset::WipeRight
+            | TextPreset::WipeLeft
+            | TextPreset::WipeDown
+            | TextPreset::WipeUp => {
                 self.enter = self.enter.reveal(0.);
                 self.exit = self.exit.reveal(0.).opacity(0.);
                 self.opacity_transition = Some(Transition::Tween(
@@ -297,7 +318,11 @@ impl TextOptions {
                     Easing::EaseOut,
                 ));
                 self.clip = TextClip::Unit;
-                self.wipe_left = preset == TextPreset::WipeLeft;
+                self.wipe_left = matches!(preset, TextPreset::WipeLeft | TextPreset::WipeUp);
+
+                if matches!(preset, TextPreset::WipeDown | TextPreset::WipeUp) {
+                    self.reveal_axis = TextRevealAxis::Vertical;
+                }
             }
             TextPreset::Typewriter => {
                 self.enter = self.enter.opacity(0.);
@@ -402,3 +427,20 @@ impl std::fmt::Display for TextError {
 }
 
 impl std::error::Error for TextError {}
+
+impl crate::MotionData<4> for TextTarget {
+    fn channels(self) -> [f64; 4] {
+        self.values
+    }
+
+    fn with_channels(self, values: [f64; 4]) -> Self {
+        Self {
+            values,
+            relative_y: self.relative_y,
+        }
+    }
+
+    fn compatible(self, other: Self) -> bool {
+        self.relative_y == other.relative_y
+    }
+}

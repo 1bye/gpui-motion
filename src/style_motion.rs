@@ -524,3 +524,44 @@ impl StyleFrame {
         element
     }
 }
+
+impl crate::MotionData<40> for StyleTarget {
+    fn channels(self) -> [f64; 40] {
+        std::array::from_fn(|i| {
+            if i < COUNT {
+                self.values[i].unwrap_or(0.0)
+            } else {
+                self.colors[(i - COUNT) / 4].map_or(0.0, |color| {
+                    crate::MotionData::<4>::channels(color)[(i - COUNT) % 4]
+                })
+            }
+        })
+    }
+
+    fn with_channels(self, values: [f64; 40]) -> Self {
+        Self {
+            values: std::array::from_fn(|i| {
+                self.values[i].map(|_| {
+                    if signed(i) {
+                        values[i]
+                    } else {
+                        values[i].max(0.0)
+                    }
+                })
+            }),
+            colors: std::array::from_fn(|i| {
+                self.colors[i].map(|color| {
+                    crate::MotionData::<4>::with_channels(
+                        color,
+                        std::array::from_fn(|j| values[COUNT + i * 4 + j]),
+                    )
+                })
+            }),
+        }
+    }
+
+    fn compatible(self, other: Self) -> bool {
+        self.values.map(|v| v.is_some()) == other.values.map(|v| v.is_some())
+            && self.colors.map(|v| v.is_some()) == other.colors.map(|v| v.is_some())
+    }
+}

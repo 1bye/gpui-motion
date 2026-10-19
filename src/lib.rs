@@ -145,16 +145,81 @@ mod text;
 #[cfg(feature = "text")]
 pub use text::{
     NumberEffect, Scramble, TextClip, TextError, TextLayoutUnit, TextMatch, TextOptions,
-    TextPlaybackState, TextPresentation, TextPreset, TextTarget, TextUnit, TextUnitInfo,
-    text_ranges,
+    TextPlaybackState, TextPresentation, TextPreset, TextRevealAxis, TextTarget, TextUnit,
+    TextUnitInfo, text_ranges,
 };
 
 #[cfg(feature = "gpui")]
 mod text_native {
     use gpui::ColorExt as _;
 
-    crate::__motion_text_adapter!(gpui);
+    fn text_color_to_native(color: crate::Color) -> gpui::Hsla {
+        gpui::rgb_to_hsla(color.to_rgba())
+    }
+
+    fn text_color_from_native(color: gpui::Hsla) -> crate::Color {
+        let color = gpui::hsla_to_rgba(color);
+
+        crate::Color::rgba(
+            color.red.into(),
+            color.green.into(),
+            color.blue.into(),
+            color.alpha.into(),
+        )
+    }
+
+    crate::__motion_text_adapter!(gpui, text_color_to_native, text_color_from_native);
 }
 
 #[cfg(feature = "gpui")]
 pub use text_native::{NumberElement, NumberMotionState, TextElement, TextMotionState};
+
+mod graph;
+
+pub use graph::{
+    GraphError, GraphSubscription, MotionEvent, MotionEventKind, MotionGraph, ValueId,
+};
+
+mod geometry;
+
+pub use geometry::{
+    AutoScroll, DragBounds, GeometryError, LayoutRect, ReorderAxis, ScrollEdge, ScrollOffsets,
+};
+
+mod completion;
+
+pub use completion::{Completion, CompletionStatus};
+
+mod typed_animation;
+
+pub use typed_animation::{
+    MotionData, TrackId, TypedAnimation, TypedFrame, TypedKeyframe, TypedState, TypedTimeline,
+};
+
+mod orchestration;
+
+pub use orchestration::{ChildrenOrder, MotionConfig, MotionNode, MotionTree, TreeError};
+
+#[cfg(feature = "svg-path")]
+pub use vector::SvgPathError;
+pub use vector::{PathMeasure, PathPoint};
+
+#[cfg(feature = "text")]
+pub use text::{FixedNumber, FormattedNumber, NumberFormat, NumberFormatError, RichText, TextSpan};
+
+mod spatial_native;
+
+#[cfg(feature = "gpui")]
+mod spatial {
+    crate::__motion_spatial_adapter!(gpui, crate);
+}
+
+pub use geometry::ScrollFrame;
+
+#[cfg(feature = "gpui")]
+pub use spatial::{
+    AnchorElement, GraphState, MotionAnchor, MotionTreeState, ScrollTracker, SharedOverlay,
+    SharedOverlayElement,
+};
+
+pub use geometry::{DragEvent, GesturePhase, PinchGesture};

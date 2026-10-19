@@ -477,6 +477,11 @@ impl Playback {
         Ok(())
     }
 
+    /// Current signed playback multiplier.
+    pub fn speed(&self) -> f64 {
+        self.speed
+    }
+
     /// Whether this clock advances.
     pub fn is_playing(&self) -> bool {
         !self.paused && self.speed != 0.0
@@ -493,6 +498,7 @@ pub struct AnimationState {
     complete: bool,
     force_end: bool,
     iteration: u64,
+    observers: crate::completion::CompletionSource,
     #[cfg(feature = "gpui")]
     pub(crate) epoch: Instant,
 }
@@ -514,6 +520,7 @@ impl AnimationState {
             complete: false,
             force_end: false,
             iteration: 0,
+            observers: Default::default(),
             #[cfg(feature = "gpui")]
             epoch: Instant::now(),
         }
@@ -524,6 +531,7 @@ impl AnimationState {
     pub fn sample(&mut self, animation: &Animation, now: Duration, reduced_motion: bool) -> Frame {
         if !self.clip.as_ref().is_some_and(|old| old.same(animation)) {
             if let Some(old) = &self.clip {
+                self.observers.resolve(crate::CompletionStatus::Cancelled);
                 let frame = old
                     .resolve(self.clock.time(now), self.origin, self.force_end)
                     .0;
@@ -579,6 +587,11 @@ impl AnimationState {
             !complete && self.clock.is_playing(),
             complete && !self.complete,
         );
+
+        if complete && !self.complete {
+            self.observers.resolve(crate::CompletionStatus::Completed);
+        }
+
         self.complete = complete;
         self.iteration = iteration;
 
@@ -612,6 +625,7 @@ impl AnimationState {
 
     /// Restarts the same clip from its captured origin.
     pub fn restart(&mut self, now: Duration) {
+        self.observers.resolve(crate::CompletionStatus::Cancelled);
         self.clock.seek(Duration::ZERO, now);
         self.clock.play(now);
         self.force_end = false;
@@ -623,9 +637,31 @@ impl AnimationState {
         self.force_end = true;
     }
 
+    /// A completion future for this run. Sampling drives it; replacement,
+    /// restart, explicit cancellation and owner drop resolve `Cancelled`.
+    pub fn completion(&mut self) -> crate::Completion {
+        self.observers.subscribe(self.complete)
+    }
+
+    /// Pauses playback and cancels completion observers. `play` may resume the
+    /// retained trajectory; a new observer can follow that resumed run.
+    pub fn cancel(&mut self, now: Duration) {
+        self.pause(now);
+        self.observers.resolve(crate::CompletionStatus::Cancelled);
+    }
+
+    pub(crate) fn current_velocity(&self) -> f64 {
+        self.current.velocity()[0]
+    }
+
     /// Current repeat iteration, zero based.
     pub fn iteration(&self) -> u64 {
         self.iteration
+    }
+
+    /// Whether the last sample reached its endpoint.
+    pub fn is_complete(&self) -> bool {
+        self.complete
     }
 
     /// Whether controls permit time to advance.

@@ -7,8 +7,14 @@ mod options;
 mod state;
 
 pub use options::{
-    NumberEffect, Scramble, TextClip, TextError, TextMatch, TextOptions, TextPreset, TextTarget,
-    TextUnit, TextUnitInfo, text_ranges,
+    NumberEffect, Scramble, TextClip, TextError, TextMatch, TextOptions, TextPreset,
+    TextRevealAxis, TextTarget, TextUnit, TextUnitInfo, text_ranges,
 };
 
 pub use state::{TextLayoutUnit, TextPlaybackState, TextPresentation};
+
+mod format;
+
+pub use format::{
+    FixedNumber, FormattedNumber, NumberFormat, NumberFormatError, RichText, TextSpan,
+};

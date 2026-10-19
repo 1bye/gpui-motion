@@ -94,3 +94,16 @@ the quick start. All examples and the public export index are on that page.
 ## Public export index
 
 [Read public export index in the README](../README.md#public-export-index).
+
+## Expanded shared engine
+
+- [Reactive values](../README.md#reactive-values-and-subscriptions)
+- [Parent/child orchestration](../README.md#parent-and-child-sequences)
+- [Typed clips and mixed timelines](../README.md#typed-clips-and-mixed-timelines)
+- [Completion](../README.md#completion-futures)
+- [Scroll targets](../README.md#measured-scroll-targets-and-viewport-roots)
+- [Measured drag and pinch](../README.md#measured-drag-bounds-handles-and-pinch)
+- [Spatial reorder](../README.md#spatial-reorder-and-edge-scrolling)
+- [Cross-container movement](../README.md#cross-container-shared-movement)
+- [SVG preparation](../README.md#svg-path-preparation-and-following)
+- [Rich text and decimal counters](../README.md#rich-text-vertical-reveals-and-decimal-counters)

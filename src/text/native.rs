@@ -3,7 +3,7 @@
 #[doc(hidden)]
 #[macro_export]
 macro_rules! __motion_text_adapter {
-    ($ui:ident) => {
+    ($ui:ident, $to_color:path, $from_color:path) => {
         use std::{
             cell::RefCell,
             collections::{BTreeMap, BTreeSet, VecDeque},
@@ -24,6 +24,7 @@ macro_rules! __motion_text_adapter {
         };
 
         struct PaintGlyph {
+            color: Option<$crate::Color>,
             font: $ui::FontId,
             glyph: $ui::GlyphId,
             emoji: bool,
@@ -43,7 +44,8 @@ macro_rules! __motion_text_adapter {
             width: Option<Pixels>,
             rem: Pixels,
             options: TextOptions,
-            number: bool,
+            number: Option<$crate::FormattedNumber>,
+            rich: Option<$crate::RichText>,
         }
 
         struct PreparedText {
@@ -59,6 +61,10 @@ macro_rules! __motion_text_adapter {
             committed: Option<ShapeKey>,
             origin: Option<Point<Pixels>>,
             paints: BTreeMap<u64, Arc<PaintPiece>>,
+            colors: BTreeMap<(u64, usize), $crate::ColorState>,
+            font_size: Option<MotionValue>,
+            style_active: bool,
+            style_clock: $crate::Playback,
             error: Option<TextError>,
             replay: bool,
         }
@@ -72,6 +78,10 @@ macro_rules! __motion_text_adapter {
                     committed: None,
                     origin: None,
                     paints: BTreeMap::new(),
+                    colors: BTreeMap::new(),
+                    font_size: None,
+                    style_active: false,
+                    style_clock: $crate::Playback::default(),
                     error: None,
                     replay: false,
                 }
@@ -112,7 +122,24 @@ macro_rules! __motion_text_adapter {
                     enter_with: None,
                     progress: None,
                     number: None,
+                    number_layout: None,
+                    rich: None,
+                    font_motion: None,
+                    color_transition: None,
                 }
+            }
+
+            /// Declares immutable styled runs. Font family/weight/color may vary;
+            /// font size and line height remain label-wide. Editing/decorations are
+            /// outside this display-label API. The complete text is shaped first.
+            pub fn rich_element(
+                &self,
+                id: impl Into<ElementId>,
+                rich: &$crate::RichText,
+            ) -> TextElement {
+                let mut element = self.element(id, rich.text().to_owned());
+                element.rich = Some(rich.clone());
+                element
             }
 
             /// Freezes the current presentation. Notify the owning view after controls.
@@ -121,6 +148,7 @@ macro_rules! __motion_text_adapter {
                 let now = data.now(cx);
 
                 data.engine.pause(now);
+                data.style_clock.pause(now);
                 window.refresh();
             }
 
@@ -130,6 +158,7 @@ macro_rules! __motion_text_adapter {
                 let now = data.now(cx);
 
                 data.engine.play(now);
+                data.style_clock.play(now);
                 window.refresh();
             }
 
@@ -156,7 +185,10 @@ macro_rules! __motion_text_adapter {
 
             /// Whether the last sample requested ongoing animation.
             pub fn is_animating(&self) -> bool {
-                self.0.borrow().engine.is_animating()
+                {
+                    let data = self.0.borrow();
+                    data.engine.is_animating() || data.style_active
+                }
             }
 
             /// Copies presentations in unscrolled window-layout coordinates. This allocates;
@@ -184,6 +216,10 @@ macro_rules! __motion_text_adapter {
             enter_with: Option<Entrance>,
             progress: Option<f64>,
             number: Option<NumberRequest>,
+            number_layout: Option<$crate::FormattedNumber>,
+            rich: Option<$crate::RichText>,
+            font_motion: Option<(f32, Transition)>,
+            color_transition: Option<Transition>,
         }
 
         impl Styled for TextElement {
@@ -193,36 +229,66 @@ macro_rules! __motion_text_adapter {
         }
 
         impl TextElement {
+            /// Animates span/inherited glyph colors using the shared linear-light
+            /// color sampler. Normal glyph painting is unchanged when omitted.
+            pub fn color_transition(mut self, transition: Transition) -> Self {
+                self.color_transition = Some(transition);
+                self
+            }
+
+            /// Animates the resolved label font size in logical pixels. This performs
+            /// native reshaping/layout while moving; it is not GPU scale projection.
+            /// Panics for nonpositive/non-finite sizes. Retain the text state.
+            pub fn animate_font_size(mut self, pixels: f32, transition: Transition) -> Self {
+                assert!(
+                    pixels.is_finite() && pixels > 0.0,
+                    "invalid animated font size"
+                );
+                self.font_motion = Some((pixels, transition));
+                self
+            }
+
+            /// Chooses the mask axis for a custom reveal target.
+            pub fn reveal_axis(mut self, axis: $crate::TextRevealAxis) -> Self {
+                self.options.reveal_axis = axis;
+                self
+            }
+
             /// Chooses whole text, words, Unicode graphemes, or visual wrapped lines.
             pub fn units(mut self, units: TextUnit) -> Self {
                 self.options.unit = units;
 
                 self
             }
+
             /// Selects a convenience effect. Later target builders override its poses.
             pub fn preset(mut self, preset: TextPreset) -> Self {
                 self.options.preset(preset);
 
                 self
             }
+
             /// Selects the per-unit entrance pose.
             pub fn enter(mut self, target: TextTarget) -> Self {
                 self.options.enter = target;
 
                 self
             }
+
             /// Selects the outgoing pose. Exits remain painted until settled.
             pub fn exit(mut self, target: TextTarget) -> Self {
                 self.options.exit = target;
 
                 self
             }
+
             /// Sets spring, tween, or instant timing.
             pub fn transition(mut self, transition: Transition) -> Self {
                 self.options.transition = transition;
 
                 self
             }
+
             /// Sets independent opacity timing. Movement and reveal keep `transition`.
             /// SlideUp and wipe presets default to a 100 ms fade; later calls override it.
             pub fn opacity_transition(mut self, transition: Transition) -> Self {
@@ -238,36 +304,42 @@ macro_rules! __motion_text_adapter {
 
                 self
             }
+
             /// Selects identity matching across content changes.
             pub fn matching(mut self, matching: TextMatch) -> Self {
                 self.options.matching = matching;
 
                 self
             }
+
             /// Animates measured natural positions; font metrics and sizes change immediately.
             pub fn reflow(mut self, transition: Transition) -> Self {
                 self.options.reflow = Some(transition);
 
                 self
             }
+
             /// Coordinates incoming content with outgoing exits. Pending changes use latest text.
             pub fn presence_mode(mut self, mode: PresenceMode) -> Self {
                 self.options.presence_mode = mode;
 
                 self
             }
+
             /// Clips ink to each unit's stationary line-height reservation.
             pub fn clip(mut self, clip: TextClip) -> Self {
                 self.options.clip = clip;
 
                 self
             }
+
             /// Controls initial mount only; subsequent content changes still animate.
             pub fn animate_initial(mut self, animate: bool) -> Self {
                 self.options.animate_initial = animate;
 
                 self
             }
+
             /// Prepares deterministic visual substitutions without changing semantic text.
             /// Use grapheme grouping for a character scramble.
             pub fn scramble(mut self, scramble: Scramble) -> Self {
@@ -275,6 +347,7 @@ macro_rules! __motion_text_adapter {
 
                 self
             }
+
             /// Adds a prepared clip per unit. Retain the clip outside render; clones preserve identity.
             /// Only x/y/opacity channels apply, in logical pixels. Exit lifetime is still finite.
             pub fn animation(mut self, animation: &Animation) -> Self {
@@ -282,6 +355,7 @@ macro_rules! __motion_text_adapter {
 
                 self
             }
+
             /// Prepares an entrance per shaped unit, on layout/config changes or explicit replay.
             pub fn enter_with(
                 mut self,
@@ -291,6 +365,7 @@ macro_rules! __motion_text_adapter {
 
                 self
             }
+
             /// Scrubs a finite entrance sequence, including stagger. Panics for invalid
             /// progress or an infinite clip; no autonomous entrance frames are requested.
             pub fn progress(mut self, progress: f64) -> Self {
@@ -311,17 +386,26 @@ macro_rules! __motion_text_adapter {
                     enter_with: self.enter_with,
                     progress: self.progress,
                     number: self.number,
+                    number_layout: self.number_layout,
+                    rich: self.rich,
+                    font_motion: self.font_motion,
+                    color_transition: self.color_transition,
                 })
             }
         }
 
         struct NumberData {
+            scale: u8,
+            format: $crate::NumberFormat,
             value: Option<MotionValue>,
             epoch: Option<Instant>,
         }
+
         struct NumberRequest {
             state: Rc<RefCell<NumberData>>,
             target: i64,
+            scale: u8,
+            format: $crate::NumberFormat,
             effect: NumberEffect,
             digits: usize,
         }
@@ -338,6 +422,8 @@ macro_rules! __motion_text_adapter {
                 Self {
                     text: TextMotionState::default(),
                     value: Rc::new(RefCell::new(NumberData {
+                        scale: 0,
+                        format: $crate::NumberFormat::default(),
                         value: None,
                         epoch: None,
                     })),
@@ -354,12 +440,31 @@ macro_rules! __motion_text_adapter {
                 element.number = Some(NumberRequest {
                     state: self.value.clone(),
                     target: value,
+                    scale: 0,
+                    format: self.value.borrow().format.clone(),
                     effect: NumberEffect::Roll,
                     digits: 0,
                 });
 
                 NumberElement(element)
             }
+
+            /// Declares an exact fixed-point value with explicit locale formatting.
+            /// Digit identities use decimal places, independent of grouping/affixes.
+            /// Changing scale rescales the interpolation trajectory and velocity.
+            pub fn formatted_element(
+                &self,
+                id: impl Into<ElementId>,
+                value: $crate::FixedNumber,
+                format: &$crate::NumberFormat,
+            ) -> NumberElement {
+                let mut element = self.element(id, value.coefficient());
+                let request = element.0.number.as_mut().expect("number declaration");
+                request.scale = value.scale();
+                request.format = format.clone();
+                element
+            }
+
             /// Digit-layer motion for playback controls and diagnostics.
             pub fn text_state(&self) -> &TextMotionState {
                 &self.text
@@ -368,18 +473,33 @@ macro_rules! __motion_text_adapter {
 
         /// Styled count declaration. Number formatting reserves at most 256 minimum digits.
         pub struct NumberElement(TextElement);
+
         impl Styled for NumberElement {
             fn style(&mut self) -> &mut StyleRefinement {
                 self.0.style()
             }
         }
+
         impl NumberElement {
+            /// Animates inherited digit color using the shared linear-light solver.
+            pub fn color_transition(mut self, transition: Transition) -> Self {
+                self.0.color_transition = Some(transition);
+                self
+            }
+
+            /// Animates label-wide font size through native shaping and layout.
+            pub fn animate_font_size(mut self, pixels: f32, transition: Transition) -> Self {
+                self.0 = self.0.animate_font_size(pixels, transition);
+                self
+            }
+
             /// Chooses rolling, fading, sliding, or numeric interpolation.
             pub fn effect(mut self, effect: NumberEffect) -> Self {
                 self.0.number.as_mut().unwrap().effect = effect;
 
                 self
             }
+
             /// Pads the magnitude with zeroes. The sign is separate. Panics above 256.
             pub fn min_digits(mut self, digits: usize) -> Self {
                 assert!(digits <= 256, "minimum digit count exceeds 256");
@@ -387,12 +507,14 @@ macro_rules! __motion_text_adapter {
 
                 self
             }
+
             /// Chooses changed-digit or numeric interpolation timing.
             pub fn transition(mut self, transition: Transition) -> Self {
                 self.0.options.transition = transition;
 
                 self
             }
+
             /// Overrides the independent opacity timing, including rolling/sliding exits.
             pub fn opacity_transition(mut self, transition: Transition) -> Self {
                 self.0.options.opacity_transition = Some(transition);
@@ -407,9 +529,18 @@ macro_rules! __motion_text_adapter {
                 self
             }
         }
+
         impl IntoElement for NumberElement {
             type Element = Stateful<Div>;
             fn into_element(mut self) -> Self::Element {
+                let request = self.0.number.as_ref().expect("number declaration");
+                let semantic = request.format.format(
+                    $crate::FixedNumber::new(request.target, request.scale)
+                        .expect("validated scale"),
+                    0,
+                );
+                self.0.container = self.0.container.aria_value(semantic.text().to_owned());
+
                 self.0.options.unit = TextUnit::Graphemes;
                 self.0.options.matching = TextMatch::Position;
                 self.0.options.reflow = Some(self.0.options.transition);
@@ -447,6 +578,10 @@ macro_rules! __motion_text_adapter {
             enter_with: Option<Entrance>,
             progress: Option<f64>,
             number: Option<NumberRequest>,
+            number_layout: Option<$crate::FormattedNumber>,
+            rich: Option<$crate::RichText>,
+            font_motion: Option<(f32, Transition)>,
+            color_transition: Option<Transition>,
         }
 
         impl TextPainter {
@@ -459,9 +594,17 @@ macro_rules! __motion_text_adapter {
                 let clock = cx.background_executor().now();
                 let now = clock.saturating_duration_since(*state.epoch.get_or_insert(clock));
 
+                let initialized = state.value.is_some();
+                let previous_scale = state.scale;
+                state.scale = request.scale;
                 let value = state
                     .value
                     .get_or_insert_with(|| MotionValue::new(request.target as f64));
+                if initialized && previous_scale != request.scale {
+                    value.sample(now, cx.reduce_motion());
+                    value
+                        .rescale(10_f64.powi(i32::from(request.scale) - i32::from(previous_scale)));
+                }
 
                 let displayed = if request.effect == NumberEffect::Interpolate {
                     value.animate(request.target as f64, self.options.transition, now);
@@ -480,22 +623,18 @@ macro_rules! __motion_text_adapter {
                     request.target
                 };
 
-                self.text = format_count(displayed, request.digits).into();
+                let formatted = request.format.format(
+                    $crate::FixedNumber::new(displayed, request.scale)
+                        .expect("validated number scale"),
+                    request.digits,
+                );
+                self.text = formatted.text().to_owned().into();
+                self.number_layout = Some(formatted);
 
                 if request.effect == NumberEffect::Interpolate {
                     self.options.transition = Transition::Instant;
                     self.options.animate_initial = false;
                 }
-            }
-        }
-
-        fn format_count(value: i64, digits: usize) -> String {
-            let magnitude = format!("{:0width$}", value.unsigned_abs(), width = digits);
-
-            if value < 0 {
-                format!("-{magnitude}")
-            } else {
-                magnitude
             }
         }
 
@@ -512,9 +651,11 @@ macro_rules! __motion_text_adapter {
             fn id(&self) -> Option<ElementId> {
                 None
             }
+
             fn source_location(&self) -> Option<&'static std::panic::Location<'static>> {
                 None
             }
+
             fn request_layout(
                 &mut self,
                 _: Option<&GlobalElementId>,
@@ -523,13 +664,44 @@ macro_rules! __motion_text_adapter {
                 cx: &mut App,
             ) -> (LayoutId, TextStyle) {
                 self.resolve_number(window, cx);
-                let style = window.text_style();
+                let mut style = window.text_style();
+                {
+                    let mut data = self.state.0.borrow_mut();
+                    data.style_active = false;
+
+                    if self.color_transition.is_none() {
+                        data.colors.clear();
+                    }
+
+                    if let Some((target, transition)) = self.font_motion {
+                        let wall = data.now(cx);
+                        let now = data.style_clock.time(wall);
+                        let playing = data.style_clock.is_playing();
+                        let font = data.font_size.get_or_insert_with(|| {
+                            MotionValue::new(f64::from(
+                                style.font_size.to_pixels(window.rem_size()),
+                            ))
+                        });
+                        font.animate(f64::from(target), transition, now);
+                        let frame = font.sample(now, cx.reduce_motion());
+                        style.font_size =
+                            px(frame.value().max(0.1).min(f64::from(f32::MAX)) as f32).into();
+                        data.style_active |= frame.is_animating() && playing;
+
+                        if frame.is_animating() && playing {
+                            window.request_animation_frame();
+                        }
+                    } else {
+                        data.font_size = None;
+                    }
+                }
                 let state = self.state.clone();
                 let text = self.text.clone();
                 let options = self.options.clone();
                 let style_copy = style.clone();
                 let enter_with = self.enter_with.clone();
-                let number = self.number.is_some();
+                let number = self.number_layout.clone();
+                let rich = self.rich.clone();
 
                 let layout = window.request_measured_layout(
                     Style::default(),
@@ -549,7 +721,8 @@ macro_rules! __motion_text_adapter {
                             width,
                             rem: window.rem_size(),
                             options: options.clone(),
-                            number,
+                            number: number.clone(),
+                            rich: rich.clone(),
                         };
 
                         prepare_cached(&state, key, enter_with.as_ref(), window, cx)
@@ -559,6 +732,7 @@ macro_rules! __motion_text_adapter {
 
                 (layout, style)
             }
+
             fn prepaint(
                 &mut self,
                 _: Option<&GlobalElementId>,
@@ -587,7 +761,8 @@ macro_rules! __motion_text_adapter {
                     },
                     rem: window.rem_size(),
                     options: self.options.clone(),
-                    number: self.number.is_some(),
+                    number: self.number_layout.clone(),
+                    rich: self.rich.clone(),
                 };
 
                 let Some(prepared) =
@@ -627,6 +802,18 @@ macro_rules! __motion_text_adapter {
                         data.paints.insert(id, piece.clone());
                     }
 
+                    let TextData { paints, colors, .. } = &mut *data;
+
+                    colors.retain(|(id, index), _| {
+                        paints.get(id).is_some_and(|piece| {
+                            *index
+                                < piece
+                                    .glyphs
+                                    .len()
+                                    .max(piece.substitutes.iter().map(Vec::len).max().unwrap_or(0))
+                        })
+                    });
+
                     data.committed = Some(prepared.key.clone());
                     data.origin = Some(origin);
 
@@ -658,6 +845,7 @@ macro_rules! __motion_text_adapter {
                         data.engine.presentation().map(|frame| frame.id).collect();
 
                     data.paints.retain(|id, _| ids.contains(id));
+                    data.colors.retain(|(id, _), _| ids.contains(id));
                 }
 
                 let mut elements = Vec::with_capacity(count);
@@ -695,33 +883,34 @@ macro_rules! __motion_text_adapter {
                     // glyphs paint directly and need no per-unit native layout nodes.
                     let mask = self.options.clip == TextClip::Unit || frame.reveal < 1.;
 
-                    let cut = if self.options.wipe_left {
-                        frame.size[0] * (1. - frame.reveal)
-                    } else {
-                        0.
-                    };
-
-                    let origin = if mask {
-                        [frame.clip_origin[0] + cut, frame.clip_origin[1]]
-                    } else {
-                        frame.origin
-                    };
+                    let (clip_origin, clip_size) = mask_geometry(&frame, &self.options);
+                    let origin = if mask { clip_origin } else { frame.origin };
 
                     let offset = [frame.origin[0] - origin[0], frame.origin[1] - origin[1]];
                     let substitution = frame.substitution;
                     let color = style.color;
+                    let color_transition = self.color_transition;
                     let font_size = px(piece.layout.em as f32);
                     let error_state = self.state.clone();
                     let fallback_piece = piece.clone();
 
                     let drawing = canvas(
                         move |_, _, _| (),
-                        move |bounds, _, window, _| {
+                        move |bounds, _, window, cx| {
                             let glyphs = substitution
                                 .and_then(|index| fallback_piece.substitutes.get(index))
                                 .unwrap_or(&fallback_piece.glyphs);
 
-                            for glyph in glyphs {
+                            for (glyph_index, glyph) in glyphs.iter().enumerate() {
+                                let color = animated_color(
+                                    &error_state,
+                                    (frame.id, glyph_index),
+                                    glyph.color,
+                                    color,
+                                    color_transition,
+                                    window,
+                                    cx,
+                                );
                                 let at = bounds.origin
                                     + glyph.point
                                     + point(px(offset[0] as f32), px(offset[1] as f32));
@@ -750,8 +939,8 @@ macro_rules! __motion_text_adapter {
                     let mut element = div()
                         .relative()
                         .opacity(frame.opacity as f32)
-                        .w(px((frame.size[0] * frame.reveal) as f32))
-                        .h(px(frame.size[1] as f32))
+                        .w(px(clip_size[0] as f32))
+                        .h(px(clip_size[1] as f32))
                         .when(mask, |element| element.overflow_hidden())
                         .child(drawing)
                         .into_any_element();
@@ -775,6 +964,7 @@ macro_rules! __motion_text_adapter {
 
                 elements
             }
+
             fn paint(
                 &mut self,
                 _: Option<&GlobalElementId>,
@@ -797,22 +987,11 @@ macro_rules! __motion_text_adapter {
                     let piece = &draw.piece;
 
                     let mask = if self.options.clip == TextClip::Unit || frame.reveal < 1. {
-                        let cut = if self.options.wipe_left {
-                            frame.size[0] * (1. - frame.reveal)
-                        } else {
-                            0.
-                        };
-
+                        let (origin, extent) = mask_geometry(&frame, &self.options);
                         Some(ContentMask {
                             bounds: Bounds::new(
-                                point(
-                                    px((frame.clip_origin[0] + cut) as f32),
-                                    px(frame.clip_origin[1] as f32),
-                                ),
-                                size(
-                                    px((frame.size[0] * frame.reveal) as f32),
-                                    px(frame.size[1] as f32),
-                                ),
+                                point(px(origin[0] as f32), px(origin[1] as f32)),
+                                size(px(extent[0] as f32), px(extent[1] as f32)),
                             ),
                         })
                     } else {
@@ -826,10 +1005,18 @@ macro_rules! __motion_text_adapter {
                         .and_then(|index| piece.substitutes.get(index))
                         .unwrap_or(&piece.glyphs);
 
-                    let color = style.color.opacity(frame.opacity as f32);
-
                     window.with_content_mask(mask, |window| {
-                        for glyph in glyphs {
+                        for (glyph_index, glyph) in glyphs.iter().enumerate() {
+                            let color = animated_color(
+                                &self.state,
+                                (frame.id, glyph_index),
+                                glyph.color,
+                                style.color,
+                                self.color_transition,
+                                window,
+                                cx,
+                            )
+                            .opacity(frame.opacity as f32);
                             let at = origin + glyph.point;
 
                             let result = if glyph.emoji {
@@ -860,6 +1047,52 @@ macro_rules! __motion_text_adapter {
                     self.state.0.borrow_mut().error = error;
                 }
             }
+        }
+
+        fn mask_geometry(frame: &TextPresentation, options: &TextOptions) -> ([f64; 2], [f64; 2]) {
+            let axis = usize::from(options.reveal_axis == $crate::TextRevealAxis::Vertical);
+            let mut origin = frame.clip_origin;
+            let mut size = frame.size;
+            size[axis] *= frame.reveal;
+
+            if options.wipe_left {
+                origin[axis] += frame.size[axis] - size[axis];
+            }
+            (origin, size)
+        }
+
+        fn native_color(color: $crate::Color) -> $ui::Hsla {
+            $to_color(color)
+        }
+
+        fn animated_color(
+            state: &TextMotionState,
+            key: (u64, usize),
+            desired: Option<$crate::Color>,
+            inherited: $ui::Hsla,
+            transition: Option<Transition>,
+            window: &mut Window,
+            cx: &App,
+        ) -> $ui::Hsla {
+            let Some(transition) = transition else {
+                return desired.map_or(inherited, native_color);
+            };
+            let target = desired.unwrap_or_else(|| $from_color(inherited));
+            let mut data = state.0.borrow_mut();
+            let wall = data.now(cx);
+            let now = data.style_clock.time(wall);
+            let playing = data.style_clock.is_playing();
+            let value = data
+                .colors
+                .entry(key)
+                .or_insert_with(|| $crate::ColorState::new(target));
+            let (color, active) = value.sample(target, transition, now, cx.reduce_motion());
+            data.style_active |= active && playing;
+
+            if active && playing {
+                window.request_animation_frame();
+            }
+            native_color(color)
         }
 
         fn prepare_cached(
@@ -912,12 +1145,34 @@ macro_rules! __motion_text_adapter {
             let em = key.style.font_size.to_pixels(key.rem);
             let line_height = key.style.line_height_in_pixels(key.rem);
 
+            let runs = key.rich.as_ref().map(|rich| {
+                rich.spans()
+                    .iter()
+                    .map(|span| {
+                        let mut run = key.style.to_run(span.text().len());
+
+                        if let Some(family) = span.family() {
+                            run.font.family = family.to_owned().into();
+                        }
+
+                        if let Some(weight) = span.weight() {
+                            run.font.weight = $ui::FontWeight(weight);
+                        }
+
+                        if let Some(color) = span.text_color() {
+                            run.color = native_color(color);
+                        }
+                        run
+                    })
+                    .collect::<Vec<_>>()
+            });
+            let inherited = [key.style.to_run(key.text.len())];
             let lines = window
                 .text_system()
                 .shape_text(
                     key.text.clone(),
                     em,
-                    &[key.style.to_run(key.text.len())],
+                    runs.as_deref().unwrap_or(&inherited),
                     key.width,
                     None,
                 )
@@ -984,6 +1239,11 @@ macro_rules! __motion_text_adapter {
 
                         glyphs.push(PositionedGlyph {
                             paint: PaintGlyph {
+                                color: key
+                                    .rich
+                                    .as_ref()
+                                    .and_then(|rich| rich.span_at(byte_start + glyph.index))
+                                    .and_then(|span| span.text_color()),
                                 font: run.font_id,
                                 glyph: glyph.id,
                                 emoji: glyph.is_emoji,
@@ -1137,7 +1397,9 @@ macro_rules! __motion_text_adapter {
 
                 let mut layout = TextLayoutUnit::new(
                     content.clone(),
-                    if key.number { count - index - 1 } else { index },
+                    key.number.as_ref().map_or(index, |number| {
+                        number.slot_at(range.start).unwrap_or(10_000_000 + index)
+                    }),
                     [x.into(), y.into()],
                     [piece_width.into(), piece_height.into()],
                     f32::from(em).into(),
@@ -1154,6 +1416,7 @@ macro_rules! __motion_text_adapter {
                 let paints = selected
                     .iter()
                     .map(|glyph| PaintGlyph {
+                        color: glyph.paint.color,
                         font: glyph.paint.font,
                         glyph: glyph.paint.glyph,
                         emoji: glyph.paint.emoji,
@@ -1177,11 +1440,17 @@ macro_rules! __motion_text_adapter {
 
                         let centering = (px(piece_width) - line.width()) / 2.;
 
+                        let substitute_color = key
+                            .rich
+                            .as_ref()
+                            .and_then(|rich| rich.span_at(range.start))
+                            .and_then(|span| span.text_color());
                         substitutes.push(
                             line.runs
                                 .iter()
                                 .flat_map(|run| {
                                     run.glyphs.iter().map(move |glyph| PaintGlyph {
+                                        color: substitute_color,
                                         font: run.font_id,
                                         glyph: glyph.id,
                                         emoji: glyph.is_emoji,

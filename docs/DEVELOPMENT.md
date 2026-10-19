@@ -222,3 +222,23 @@ clocks/controls, future timeline scheduling, SVG conversion and idle frames.
 The helper gallery tests use real Kit controls, including observed drag/reorder
 children. TestPlatform and the benchmark substitute fonts, display and GPU;
 keep CPU preparation measurements separate from real presentation profiling.
+
+## Expanded Motion lab
+
+```sh
+cargo run --features demo --example motion_lab
+cargo run --manifest-path integrations/gpui-kit/Cargo.toml --features demo --example motion_lab
+cargo test --features demo,native-tests --test spatial_native --example motion_lab
+cargo test --manifest-path integrations/gpui-kit/Cargo.toml --features demo,native-tests --test spatial_native --example motion_lab
+cargo bench --bench graph
+cargo bench --features demo,native-tests --bench motion_lab
+cargo bench --manifest-path integrations/gpui-kit/Cargo.toml --features demo,native-tests --bench motion_lab
+```
+
+The two `motion_lab/view.rs` files intentionally contain the same gallery code;
+wrappers select native controls, SVG assets and Kit touch opt-in. Both package
+archives contain their own complete example source. Keep these views identical.
+Tests click the production Play button in every scene and interrupt playback.
+Manual scroll and drag/reorder scenes are explored with native input; Option is
+macOS's name for Alt. Pinch delivery depends on the host platform. Headless input
+checks establish native dispatch/layout, not physical touch-device or GPU behavior.

@@ -126,6 +126,8 @@ pub struct Drag {
     elasticity: f64,
     snap: Option<f64>,
     momentum: bool,
+    direction_lock: Option<f64>,
+    locked_axis: Option<usize>,
 }
 
 impl Drag {
@@ -151,7 +153,15 @@ impl Drag {
             elasticity: 0.15,
             snap: None,
             momentum: true,
+            direction_lock: None,
+            locked_axis: None,
         }
+    }
+
+    /// Creates a drag without user constraints, bounded only by drawable f32
+    /// offsets. Add measured container constraints in a native adapter if needed.
+    pub fn unconstrained(initial: [f64; 2]) -> Self {
+        Self::new(initial, [f64::from(f32::MIN); 2], [f64::from(f32::MAX); 2])
     }
 
     /// Sets drag resistance outside bounds. Panics unless in zero through one.
@@ -177,6 +187,55 @@ impl Drag {
         self
     }
 
+    /// Locks to the first dominant axis after this positive pixel threshold.
+    /// The threshold suppresses jitter before ownership is chosen.
+    pub fn direction_lock(mut self, threshold: f64) -> Self {
+        assert!(
+            threshold.is_finite() && threshold > 0.0,
+            "invalid direction threshold"
+        );
+        self.direction_lock = Some(threshold);
+
+        self
+    }
+
+    /// Current dynamically chosen axis: zero horizontal, one vertical.
+    pub fn locked_axis(&self) -> Option<usize> {
+        self.locked_axis
+    }
+
+    /// Updates measured constraints without jumping the presentation. During a
+    /// pointer gesture resistance uses the new bounds; released values spring back.
+    pub fn set_bounds(&mut self, min: [f64; 2], max: [f64; 2], now: Duration) {
+        assert!(
+            (0..2).all(|i| min[i].is_finite() && max[i].is_finite() && min[i] <= max[i]),
+            "invalid drag bounds"
+        );
+
+        if self.min == min && self.max == max {
+            return;
+        }
+
+        self.min = min;
+        self.max = max;
+
+        if !self.dragging {
+            for i in 0..2 {
+                let target = self.values[i].target().clamp(min[i], max[i]);
+
+                self.values[i].animate(target, Transition::default(), now);
+            }
+        }
+    }
+
+    /// Last presented position and velocity, without advancing time.
+    pub fn presentation(&self) -> ([f64; 2], [f64; 2]) {
+        (
+            std::array::from_fn(|i| self.values[i].get()),
+            std::array::from_fn(|i| self.values[i].velocity()),
+        )
+    }
+
     /// Grabs the currently presented position, interrupting any previous release motion.
     pub fn begin(&mut self, pointer: [f64; 2], now: Duration) {
         assert!(pointer.iter().all(|v| v.is_finite()), "invalid pointer");
@@ -189,6 +248,7 @@ impl Drag {
         }
 
         self.pointer = pointer;
+        self.locked_axis = None;
         self.last_move = now;
         self.dragging = true;
     }
@@ -203,7 +263,23 @@ impl Drag {
 
         self.last_move = self.last_move.max(now);
 
+        if let Some(threshold) = self.direction_lock
+            && self.locked_axis.is_none()
+        {
+            let delta = std::array::from_fn::<_, 2, _>(|i| (pointer[i] - self.pointer[i]).abs());
+
+            if delta[0].max(delta[1]) < threshold {
+                return;
+            }
+
+            self.locked_axis = Some(usize::from(delta[1] > delta[0]));
+        }
+
         for (ix, point) in pointer.into_iter().enumerate() {
+            if self.locked_axis.is_some_and(|axis| axis != ix) {
+                continue;
+            }
+
             let raw = crate::value::finite(
                 self.origin[ix] + crate::value::finite(point - self.pointer[ix]),
             );

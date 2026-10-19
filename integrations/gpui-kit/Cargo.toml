@@ -1,6 +1,6 @@
 [package]
 name = "gpui-motion-kit"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2024"
 rust-version = "1.95"
 publish = ["crates-io"]
@@ -29,7 +29,7 @@ demo = ["gpui-kit/component", "gpui-kit/assets"]
 native-tests = ["gpui-kit/test-support"]
 
 [dependencies]
-gpui-ce-motion = { path = "../..", version = "0.2.0", default-features = false, features = ["text"] }
+gpui-ce-motion = { path = "../..", version = "0.3.0", default-features = false, features = ["text", "svg-path"] }
 gpui-kit = { version = "=0.7.3", default-features = false }
 
 [lints.rust]
@@ -88,3 +88,16 @@ required-features = ["native-tests"]
 [[example]]
 name = "helpers"
 required-features = ["demo"]
+
+[[test]]
+name = "spatial_native"
+required-features = ["native-tests"]
+
+[[example]]
+name = "motion_lab"
+required-features = ["demo"]
+
+[[bench]]
+name = "motion_lab"
+harness = false
+required-features = ["demo", "native-tests"]

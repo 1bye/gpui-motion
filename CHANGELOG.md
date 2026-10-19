@@ -1,5 +1,24 @@
 # Changelog
 
+## Core 0.3.0 / Kit 0.4.0 — 2026-10-19
+
+- Shared reactive value graph, typed subscriptions and lifecycle events.
+- Parent/child variant inheritance, sequencing, defaults, dynamic node targets,
+  nested exit retention and cancellable completion futures.
+- Typed clips and heterogeneous timelines with labels, signed overlaps,
+  per-channel interruption and native playback clocks.
+- Window-space anchors, target intersection scroll tracking, viewport roots/margins,
+  measured drag bounds, external handles, direction lock and structured events.
+- Grid/automatic reorder, physical keyboard neighbors and edge autoscroll.
+- Window-root shared position/crossfade across separate containers.
+- Native trackpad pinch on both stacks; recognized touch dragging on stock Kit.
+- Optional SVG path-data parser with arcs, bounded contour normalization and
+  prepared length/tangent queries for path following.
+- Rich display spans, animated colors/font size, vertical wipes and exact decimal
+  formatting with stable digit places for currency/localized separators.
+- Nine-scene CE and Kit labs, native interaction tests and CPU benchmarks.
+- Stock renderer limits remain unchanged; no CE/Kit fork or subtree scale projection.
+
 ## gpui-motion-kit 0.3.0
 
 - Add Kit-native style application, hover/press/focus/drag/in-view bindings,

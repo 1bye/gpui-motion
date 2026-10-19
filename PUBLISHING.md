@@ -13,7 +13,7 @@ Use Rust 1.95 or newer. Native examples require the host GPUI CE prerequisites
 ```sh
 cargo fmt --all --check
 cargo test --locked --no-default-features
-cargo test --locked --no-default-features --features text
+cargo test --locked --no-default-features --features text,svg-path
 cargo test --locked --features gpui
 cargo test --locked --features demo,native-tests
 cargo test --locked --features demo,native-tests --example motion_showcase
@@ -73,7 +73,7 @@ For registry releases:
 
 ```toml
 [dependencies]
-gpui-ce-motion = { version = "0.2", features = ["gpui"] }
+gpui-ce-motion = { version = "0.3", features = ["gpui"] }
 ```
 
 Use the same GPUI CE source and version throughout the consuming application.
@@ -86,7 +86,7 @@ has no third-party dependencies.
 `integrations/gpui-kit` is an independently published crate using the portable
 engine without its CE-native feature. Version the adapter independently, keeping
 its declared core dependency compatible. Publish any required new core version
-before publishing the adapter. Kit 0.3.0 uses the existing core 0.2.0 release.
+before publishing the adapter. Kit 0.4.0 requires the core 0.3.0 engine.
 The dependency includes both a development path and a registry version, so Cargo
 resolves the published core when verifying the archive.
 
@@ -103,8 +103,7 @@ cargo clippy --manifest-path integrations/gpui-kit/Cargo.toml --locked --all-tar
 RUSTDOCFLAGS="-D warnings" cargo doc --manifest-path integrations/gpui-kit/Cargo.toml --locked --no-deps
 python3 scripts/check_spacing.py --project integrations/gpui-kit
 cargo package --manifest-path integrations/gpui-kit/Cargo.toml --list
-cargo publish --manifest-path integrations/gpui-kit/Cargo.toml --dry-run --locked
-cargo check --locked --manifest-path integrations/gpui-kit/target/package/gpui-motion-kit-0.3.0/Cargo.toml --target-dir integrations/gpui-kit/target --features demo --examples
+python3 scripts/check_packages.py
 ```
 
 The archive includes the library, README, license notices, demos, and demo assets.
@@ -122,3 +121,21 @@ cargo publish --manifest-path integrations/gpui-kit/Cargo.toml --locked
 For adapter-only releases, use a distinct `gpui-motion-kit-v<version>` tag so it
 does not move the core's existing `v<version>` tag. Verify a registry-only Kit
 consumer and the hosted Kit documentation after publishing.
+
+## Coordinated core 0.3.0 / Kit 0.4.0 preparation
+
+`scripts/check_packages.py` packages/verifies the core and Kit, then builds every
+Kit example from its archive. It can verify a coordinated release before the new
+core is available on crates.io.
+It uses a temporary CLI patch pointing **only to the extracted core archive**,
+never the source checkout. The normalized Kit dependency must remain the registry
+version 0.3.0. This establishes archive completeness while the new core is unpublished.
+
+After explicit release authorization, publish core 0.3.0 first. Then regenerate
+and verify the Kit archive without any patch using `cargo publish --dry-run --locked`,
+run a registry-only consumer, and publish Kit 0.4.0. Do not claim that the pre-release
+archive patch establishes registry availability or use it for an actual publish.
+
+Use `python3 scripts/check_packages.py --native-core` to verify the CE archive and
+all native CE examples, including packaged SVG assets. The macOS CI job runs this
+check in addition to coordinated Kit archive verification. Neither command publishes.

@@ -10,23 +10,17 @@ transitions, springs, and interruptions using stock GPUI CE—no React or render
 [Demos](docs/DEVELOPMENT.md#demos) · [GPUI Kit setup](#gpui-kit) ·
 [Changelog](CHANGELOG.md)
 
-Version **0.2.0** adds text and number animations: animate labels, words, letters,
-wrapped lines, and counters with the same interruption and playback controls.
-See [text motion](#text-motion) for the complete API and runnable galleries.
+Version **0.3.0** adds reactive values, nested orchestration, typed timelines,
+measured spatial helpers, SVG preparation, and richer text/numbers.
+The nine-scene `motion_lab` demonstrates them.
 
 ## Install
 
 For **GPUI Kit**, use [`gpui-motion-kit`](#gpui-kit). The installation below is for GPUI CE.
 
-```sh
-cargo add gpui-ce-motion@0.2 --features gpui
-```
-
-Or add it to an existing GPUI CE application:
-
 ```toml
 [dependencies]
-gpui-ce-motion = { version = "0.2", features = ["gpui"] }
+gpui-ce-motion = { version = "0.3", features = ["gpui"] }
 ```
 
 Requires **Rust 1.95+**. Native adapters use **registry `gpui-ce =0.2.2`**. Use the
@@ -36,7 +30,8 @@ same CE source and version throughout your app so its element types match.
 | -------------- | ----------------------------------------------------------------------- |
 | Default (none) | Portable animation math, explicit clocks, no third-party dependencies   |
 | `text`         | Portable Unicode text lifecycle and prepared text sampling               |
-| `gpui`         | Native adapters, text, input bindings, and automatic frame scheduling    |
+| `gpui`         | Native adapters, text, SVG parsing, input, and automatic frame scheduling |
+| `svg-path`     | Portable SVG path-data parser, including arcs                           |
 | `demo`         | Running this repository's examples; adds the platform backends          |
 | `native-tests` | Development checks using CE's TestPlatform                              |
 
@@ -108,6 +103,11 @@ With portable sampling, `sample(..., now, reduced_motion)` takes elapsed time an
 the user's reduced-motion preference. In a GPUI view, `frame(..., window, cx)`
 handles the clock, frame requests, and that preference for you.
 
+- **New shared tools:** [Reactive values](#reactive-values-and-subscriptions),
+  [nested sequences](#parent-and-child-sequences), [typed timelines](#typed-clips-and-mixed-timelines),
+  [completion](#completion-futures), [measured interaction](#measured-drag-bounds-handles-and-pinch),
+  [spatial reorder](#spatial-reorder-and-edge-scrolling), [cross-container movement](#cross-container-shared-movement),
+  [path preparation](#svg-path-preparation-and-following), [rich text](#native-rich-text-and-formatted-numbers).
 - **Animation:** [Targets](#targets-and-transitions), [timing](#timing),
   [enter and exit](#enter-and-exit), [keyed presence](#keyed-presence).
 - **Playback:** [Clips](#clips-and-playback), [timelines and stagger](#timelines-and-stagger),
@@ -532,8 +532,9 @@ set the same property, drag wins over press, hover, focus, and in-view, in that 
 Read `interaction()` for input state, `presented()` for the current position, and
 `focus_handle()` for focus management. Use `cancel(cx)` when switching contexts.
 `.enabled(false)` cancels input and removes tab stops; the app supplies disabled
-semantics and restores focus. Mouse and keyboard are supported. OS-wide capture,
-multi-touch, and automatic autoscroll require application support.
+semantics and restores focus. Mouse/keyboard dragging and native trackpad pinch are supported. Raw CE touch
+dispatch remains pending upstream. Reorder edge scrolling is opt-in; OS-wide
+pointer capture remains application/platform work.
 
 ## Dragging
 
@@ -662,8 +663,8 @@ A tab strip's active selection and panel content remain application state keyed 
 
 Use `on_change(|keys, window, cx| ...)` to persist a changed order; capture application
 entities weakly. Call `set_order` for external model changes, not every render.
-`is_dragging` reports pointer ownership. Removing focus and edge autoscroll belong
-to the host. For custom bindings, `reorder_index` finds the nearest measured center
+`is_dragging` reports pointer ownership. The host restores focus after removal.
+See [spatial reorder](#spatial-reorder-and-edge-scrolling) for grids, handles and edge scrolling. For custom bindings, `reorder_index` finds the nearest measured center
 and `move_item` rearranges a slice while preserving identity.
 
 ## Layout positions
@@ -874,7 +875,7 @@ let text = state
 ```
 
 `TextTarget` supplies `x_em`, `y_em`, measured-height `y_relative`, `opacity`,
-and horizontal `reveal`. SlideUp clears the entire measured unit; SlideUp and
+and horizontal/vertical `reveal`. SlideUp clears the entire measured unit; SlideUp and
 wipes fade outgoing text over 100 ms. `opacity_transition(...)` changes that
 opacity timing while `transition(...)` keeps control of movement and reveal.
 `TextMatch::Content` preserves matching occurrences; `Replace` replaces changed
@@ -1043,8 +1044,8 @@ Use `.fill()` for a filled path, `.transition(...)` for timing, and `VectorState
 for the most recent tessellation error. Reveal affects strokes only.
 `StrokeReveal` specifies normalized length, offset in path lengths, and spacing;
 `values()` reads them. At most 4096 reveal periods are accepted. Stroke curves
-use 32 segments per curve; fills retain curve commands. SVG parsing, arcs, and
-unrelated-shape normalization are outside this API.
+use 32 segments per curve; fills retain curve commands. See [SVG preparation](#svg-path-preparation-and-following) for path parsing, arcs,
+normalization and path-following queries.
 
 For portable/custom rendering, `PathShape::commands`/`compatible` inspect shapes.
 Retain `PathMorphState`, call `validate`/`sample`, then read the borrowed `PathFrame`'s
@@ -1079,7 +1080,8 @@ progress.coast(inertia, now);
 
 `ValueFrame` reports value, velocity, activity, and completion. `Inertia::spring`
 sets the boundary spring; `project` estimates its destination. Derive dependent
-values in ordinary Rust in a defined sampling order; no subscription graph is installed.
+values directly in Rust, or use the retained [motion graph](#reactive-values-and-subscriptions)
+when automatic dependency updates and subscriptions are useful.
 
 ## Colors
 
@@ -1152,40 +1154,435 @@ valid inputs; propagate errors when values come from users. Builders such as
 `Target::width` assert their contracts: pass finite values, nonnegative dimensions,
 and opacity within `0..=1`. See the linked source declarations for each constructor's details.
 
+## Reactive values and subscriptions
+
+`MotionGraph` retains sources, derived values, and subscriptions. A sample updates
+all dependencies before dispatching events. Keep the subscription handle alive;
+dropping it unsubscribes. Prepare mappings once, outside rendering.
+
+```rust
+use gpui_ce_motion::{MotionGraph, MotionEventKind, Transition};
+use std::time::Duration;
+
+let mut graph = MotionGraph::default();
+let progress = graph.source(0.0);
+let x = graph.derive(&[progress], |values| values[0] * 240.0).unwrap();
+let opacity = graph.derive(&[progress], |values| 0.4 + values[0] * 0.6).unwrap();
+
+let subscription = graph.subscribe(x, |event| {
+    if event.kind == MotionEventKind::Complete {
+        println!("Arrived at {}", event.value);
+    }
+}).unwrap();
+
+graph.animate(progress, 1.0, Transition::default(), Duration::ZERO).unwrap();
+graph.sample(Duration::from_millis(100), false);
+
+let position = graph.get(x).unwrap();
+let alpha = graph.get(opacity).unwrap();
+```
+
+`set` records direct input velocity; `jump` resets momentum. `animate` preserves
+spring momentum. Events are `Start`, `Cancel`, `Change`, and `Complete`. Multiple
+writes coalesce per sample. Callbacks may cancel subscriptions or update another
+owner; defer edits to the graph being sampled until callbacks return.
+
+Use `typed_source`, `animate_typed`, and `typed_value` for colors, `Target`,
+`StyleTarget`, `SvgTarget`, `TextTarget`, arrays, or your own `MotionData<N>` type.
+`target(base, &[(Property, ValueId)])` binds graph values to native target fields.
+
+## Parent and child sequences
+
+A retained `MotionTree` propagates variants, staggers siblings, and sequences
+parents before or after children. Add parents first. Keys are application data.
+
+```rust
+use gpui_ce_motion::{ChildrenOrder, Motion, MotionConfig, MotionNode, MotionTree, Target, Variants};
+use std::time::Duration;
+
+let variants = || Variants::new([
+    (true, Motion::new(Target::default().y(0.0).opacity(1.0))),
+    (false, Motion::new(Target::default()).present(false)
+        .exit(Target::default().y(12.0).opacity(0.0))),
+]).unwrap();
+
+let mut tree = MotionTree::default()
+    .config(MotionConfig::default().stagger(Duration::from_millis(40)));
+
+tree.add(MotionNode::new("panel", Target::default(), variants())
+    .when(ChildrenOrder::BeforeChildren)
+    .exit_when(ChildrenOrder::AfterChildren)).unwrap();
+tree.add(MotionNode::new("title", Target::default(), variants())
+    .parent("panel")).unwrap();
+
+tree.set_variant(&false, Duration::ZERO, false).unwrap();
+tree.sample(Duration::from_millis(100), false);
+
+let retain_panel = tree.is_mounted(&"panel");
+let title = tree.get(&"title").unwrap();
+```
+
+`Together`, `BeforeChildren`, and `AfterChildren` choose the timing relationship.
+`exit_when` optionally chooses a separate policy for leaving.
+`inherit(false)` blocks ancestor variant propagation into that subtree;
+`set_node_variant` explicitly selects one subtree. `set_motion` accepts a dynamic
+Rust-computed declaration for one node. Identical declarations do not restart.
+Gated animations hold their local clock and momentum. Nested exits keep a parent
+mounted until every participating descendant exits; a non-exiting child keeps it
+mounted. The application removes the view and restores focus afterward.
+
+`MotionConfig::transition(...).motion(target)` supplies explicit defaults to your
+render helpers. It installs no global provider and does not override OS preferences.
+
+## Typed clips and mixed timelines
+
+`TypedAnimation<T, N>` supports scalars, colors, numeric targets, styles, SVG
+transforms, text targets, and arrays. Implement `MotionData<N>` for another fixed
+numeric representation. Seed and clip must declare the same property mask.
+
+```rust
+use gpui_ce_motion::{Color, Easing, SvgTarget, TypedAnimation, TypedTimeline};
+use std::time::Duration;
+
+let mut timeline = TypedTimeline::default();
+
+let color = timeline.at(
+    Duration::ZERO,
+    Color::rgb(0x223344),
+    TypedAnimation::to(Color::rgb(0xd8f58b), Duration::from_millis(400), Easing::EaseInOut).unwrap(),
+);
+
+timeline.label("turn", Duration::from_millis(120)).unwrap();
+
+let icon = timeline.at_label(
+    "turn",
+    -0.04,
+    SvgTarget::default(),
+    TypedAnimation::to(SvgTarget::default().rotate_degrees(360.0), Duration::from_millis(600), Easing::EaseInOut).unwrap(),
+).unwrap();
+
+timeline.sample(Duration::from_millis(300), false);
+
+let background = timeline.value(color).unwrap();
+let transform = timeline.value(icon).unwrap();
+```
+
+Use `TypedKeyframe::new/current/easing`, `TypedAnimation::keyframes/to/spring`,
+`delay`, and `repeat` to prepare clips. `TypedState::sample` plays one typed value
+with per-channel spring interruption. `TypedTimeline::after` accepts signed
+seconds for gaps or overlaps; adding after a forever track returns an error.
+Track IDs belong to their creating timeline. Setup allocates; sampling reuses state.
+
+Both owners support pause, play, seek, restart, speed (including reverse), and
+completion. `TypedState::finish` finishes even a forever clip. Applying sampled
+values uses the existing numeric/style/SVG/text adapters. Kit still rejects blur
+and backdrop blur through `StyleFrame::try_apply`; typed tracks add no renderer hooks.
+
+## Completion futures
+
+`AnimationState`, `TypedState`, `TypedTimeline`, and `MotionTree` expose
+`completion()`. Requesting a future allocates observer storage; ordinary sampling
+does not. Await it on your application's executor while native frames drive the
+animation. Completion, replacement, explicit cancellation, restart, and owner drop
+all resolve the observer instead of leaving a waiting task behind.
+
+```rust
+use gpui_ce_motion::{Animation, AnimationState, CompletionStatus, Easing, Target};
+use std::time::Duration;
+
+let clip = Animation::to(Target::default().x(80.0), Duration::from_millis(300), Easing::Linear);
+let mut state = AnimationState::default();
+
+state.sample(&clip, Duration::ZERO, false);
+
+let finished = state.completion();
+
+state.sample(&clip, Duration::from_millis(300), false);
+
+async move {
+    match finished.await {
+        CompletionStatus::Completed => println!("Finished"),
+        CompletionStatus::Cancelled => println!("Replaced or cancelled"),
+    }
+};
+```
+
+## SVG path preparation and following
+
+`PathShape::parse_svg` accepts SVG path data, including relative, smooth, implicit,
+and elliptical arc commands. Enable `svg-path` for portable use; the native
+adapters enable it. This parses path data, not an SVG document or CSS.
+
+```rust
+use gpui_ce_motion::{PathMeasure, PathShape};
+
+let circle = PathShape::parse_svg("M180 100 A80 80 0 1 1 20 100 A80 80 0 1 1 180 100 Z").unwrap();
+let triangle = PathShape::parse_svg("M100 20 L185 170 L15 170 Z").unwrap();
+
+let (from, to) = circle.normalize_for_morph(&triangle, 72).unwrap();
+let path = PathShape::parse_svg("M10 130 C100 0 180 220 310 60").unwrap();
+let measure = PathMeasure::new(&path).unwrap();
+
+let point = measure.point(0.4);
+let position = point.position;
+let angle_degrees = point.tangent_degrees;
+```
+
+Feed the normalized pair to `PathMorphState` or `VectorState`; feed measured
+position/tangent to a numeric target or SVG transform. Normalize and measure once.
+Queries allocate nothing. Curves use 32 subdivisions; normalization resamples to
+line contours with your chosen point budget. Contour count, order, open/closed
+status, start points, and winding must correspond. It does not infer semantic
+shape correspondence. Subpath gaps do not become visible connecting segments.
+
+## Rich text, vertical reveals, and decimal counters
+
+```rust
+use gpui_ce_motion::{Color, FixedNumber, NumberFormat, RichText, TextSpan};
+
+let title = RichText::new([
+    TextSpan::new("Café ").font_weight(500.0),
+    TextSpan::new("in motion.").font_weight(700.0).color(Color::rgb(0xd8f58b)),
+]);
+
+let euros = NumberFormat::default()
+    .prefix("€")
+    .decimal(",")
+    .grouping(" ", 3, 3);
+
+let value = FixedNumber::new(120900, 2).unwrap();
+let formatted = euros.format(value, 0);
+
+assert_eq!(formatted.text(), "€1 209,00");
+```
+
+`TextSpan::font_family` and `font_weight` choose native faces per span. The full
+string is shaped before units split. Font size and line height remain label-wide.
+This is a display-label API; selection/editing and variable-font-axis interpolation
+are outside its contract. Numeric endpoints use an exact i64 coefficient plus
+0–18 decimal places. Separators, affixes, digit alphabets, and 3/3 or 3/2 grouping
+are explicit; it does not bundle automatic CLDR/ICU locale rules. Currency conversion
+and rounding remain application decisions. Digit identities follow decimal places
+across grouping/affix changes and integer growth. Affixes and separators have
+distinct identities; the chosen effect applies to changed glyphs.
+
+## Native graph and tree owners
+
+Retain `GraphState` or `MotionTreeState` in your view. Call `frame` once before
+reading bound values. Use `now(cx)` for input/control timestamps; do not mix that
+executor clock with an unrelated `Instant` or a manually sampled epoch. Notify
+the owning view after edits. Idle or paused owners stop requesting frames.
+
+```rust
+use gpui_ce_motion::{GraphState, MotionTreeState};
+use gpui_ce_motion::MotionTree;
+
+let graph = GraphState::default();
+let tree = MotionTreeState::new(MotionTree::<u8, bool>::default());
+```
+
+`TypedState` and `TypedTimeline` also provide native `frame` and `now` methods.
+Reduced motion settles pending transitions and bypasses tree gates/staggers.
+
+## Measured scroll targets and viewport roots
+
+Retain one `MotionAnchor` per measured element and mount each once. Anchors use
+logical window coordinates, keep native input/accessibility, and request a follow-up
+frame after changed measurements. Clear an anchor before reusing it in another window.
+
+```rust
+use gpui::{ScrollHandle, div, prelude::*, px};
+use gpui_ce_motion::{Axis, MotionAnchor, ScrollTracker};
+use gpui_ce_motion::{ScrollEdge, ScrollOffsets};
+
+let scroll = ScrollHandle::new();
+let viewport = MotionAnchor::default();
+let target = MotionAnchor::default().scroll_source(scroll.clone());
+
+let mut tracker = ScrollTracker::new(scroll.clone(), viewport.clone(), target.clone(), Axis::Y)
+    .offsets(ScrollOffsets::new(
+        ScrollEdge::new(0.0, 1.0, 0.0),
+        ScrollEdge::new(1.0, 0.0, 0.0),
+    ))
+    .margins([16.0, 0.0, 16.0, 0.0]);
+
+let panel = viewport.element("viewport", div().id("scroll")
+    .w(px(300.0)).h(px(200.0)).overflow_scroll().track_scroll(&scroll)
+    .child(target.element("target", div().h(px(600.0)))));
+```
+
+Call `tracker.frame(window, cx)` during rendering. The returned `ScrollFrame`
+contains readiness, progress, velocity, offsets, and active status; `target(from,
+to)` maps progress to numeric targets. Optional `transition` smooths with the shared
+solver. Negative margins expand the viewport; `ScrollOffsets::unclamped` permits
+anticipation. Explicit `scroll_source` avoids stale measurements between prepaints.
+For nested scrolling, track the nearest source and measure again after ancestor
+scrolling/layout; this is not an automatic browser-style ancestor observer.
+
+`GestureState::view_root(anchor).view_margins([top, right, bottom, left])` customizes
+in-view observation while preserving normal ancestor clipping.
+
+## Measured drag bounds, handles, and pinch
+
+```rust
+use gpui_ce_motion::{GestureState, MotionAnchor};
+use gpui_ce_motion::{Drag, GesturePhase};
+
+let bounds = MotionAnchor::default();
+
+let gesture = GestureState::default()
+    .with_drag(Drag::unconstrained([0.0, 0.0]).direction_lock(8.0))
+    .constraints(bounds.clone())
+    .on_drag(|event, _, _| {
+        if event.phase == GesturePhase::Ended {
+            println!("Released at {:?}", event.offset);
+        }
+    })
+    .on_pinch(|event, _, _| println!("Pinch scale: {}", event.scale));
+```
+
+Mount `bounds.element(...)`, then wrap the control with `gesture.bind(...)`.
+Measured constraints update on resize. Set `.drag_listener(false)` on the binding
+and call `gesture.start_drag([x, y], window, cx)` from a separate handle's mouse-down
+handler. Focus, keyboard equivalents, cancellation, release outside, and smooth
+inertial interruption remain supported. `DragEvent` reports phase, point, delta,
+offset, velocity, and direction lock. Callbacks run after internal borrows end;
+use weak view/entity captures rather than retaining the same owner in its callback.
+Pinch reports native trackpad lifecycle; mapping its scale to an SVG or another
+supported property is explicit. It cannot scale an ordinary element subtree.
+
+Stock CE 0.2.2 exposes pinch input, but its raw-touch dispatch is pending upstream.
+There is no CE touch-pan binding; mouse/keyboard dragging and native trackpad
+pinch are supported.
+
+## Spatial reorder and edge scrolling
+
+```rust
+use gpui::ScrollHandle;
+use gpui_ce_motion::{MotionAnchor, ReorderGroup};
+use gpui_ce_motion::{AutoScroll, ReorderAxis};
+
+let scroll = ScrollHandle::new();
+let viewport = MotionAnchor::default();
+
+let group = ReorderGroup::spatial(vec!["one", "two", "three"], ReorderAxis::Auto)
+    .unwrap()
+    .autoscroll(scroll.clone(), viewport.clone(), AutoScroll::default());
+```
+
+Render `group.order()` inside your ordinary row/column/wrapped grid, wrapping each
+stable-key item with `group.item(...)`. `Auto` measures whether it is a row,
+column, or grid; explicit `X`, `Y`, and `XY` are available. Pointer collisions use
+nearest measured slots. Batched pointer/key input keeps the latest measured slot
+map stable until layout catches up. Option/Alt + arrows choose a physical neighbor
+in grids. Auto chooses its axis at acquisition.
+Use `.drag_listener(false)` plus `start_drag(&key, point, window, cx)` for handles. External `set_order` changes require a fresh layout before acquiring
+another drag.
+Edge scrolling uses elapsed time and native bounds, and stops on release, Escape,
+blur, deactivation, or reaching a limit. One pointer owns a group. This is a measured
+reorder list/grid, not a virtualized arbitrary drag/drop data-transfer framework.
+
+## Cross-container shared movement
+
+```rust
+use gpui::{div, prelude::*, px};
+use gpui_ce_motion::SharedOverlay;
+
+let overlay = SharedOverlay::<u8>::default();
+let source = overlay.anchor(1, "inbox", div().w(px(140.0)).h(px(80.0)));
+let destination = overlay.anchor(1, "today", div().w(px(140.0)).h(px(80.0)));
+
+overlay.select(1, "today");
+
+let floating = overlay.element(1, "moving-card", div()
+    .w(px(140.0)).h(px(80.0)).child("Read this later"));
+```
+
+Anchors may live in separate clipped containers. Render floating appearances in
+an **unclipped window-root overlay** so movement can cross them. `scroll_anchor`
+tracks a scroll source; measurements must belong to the same native window.
+`active(false)` crossfades a retiring appearance; retain it while exiting, disable
+its input, and manage focus in the host. `match_size(true)` uses destination sizes
+immediately through real layout. Position uses interruptible shared springs;
+this provides no GPU size projection. `remove(&key)` releases completed history.
+
+## Native rich text and formatted numbers
+
+```rust
+use gpui::{div, prelude::*, px};
+use gpui_ce_motion::{NumberMotionState, TextMotionState};
+use gpui_ce_motion::{Color, FixedNumber, NumberFormat, RichText, TextPreset, TextSpan, Transition};
+
+let text = TextMotionState::default();
+let number = NumberMotionState::default();
+
+let rich = RichText::new([
+    TextSpan::new("Café "),
+    TextSpan::new("in motion.").color(Color::rgb(0xd8f58b)),
+]);
+
+let label = text.rich_element("title", &rich)
+    .preset(TextPreset::WipeDown)
+    .color_transition(Transition::default())
+    .animate_font_size(48.0, Transition::default());
+
+let format = NumberFormat::default().prefix("€").grouping(",", 3, 3);
+let count = number.formatted_element("balance", FixedNumber::new(120900, 2).unwrap(), &format);
+
+let content = div().font_family("Helvetica Neue").text_size(px(40.0))
+    .child(label)
+    .child(count);
+```
+
+`WipeDown` and `WipeUp` complement existing horizontal reveals;
+`reveal_axis(TextRevealAxis::Vertical)` configures custom wipes. Colors interpolate
+in linear light, retaining per-glyph state. `NumberElement` also forwards
+`color_transition` and `animate_font_size`. Font size animates by native shaping
+and layout, so it costs more than opacity/translation. Pause/play freezes glyph
+motion, font-size and color transitions; normalized seek/restart controls the
+entrance sequence, not style history. Keep one mounted element per text state.
+
 ## Public export index
 
-Every public root export is listed below and links to the tagged 0.2.0 source.
-Methods live in the same modules. Native-only types require `gpui`.
-Element wrapper/frame types are usually returned by higher-level APIs.
+The current public export families are listed below. Native methods and returned
+wrapper types live beside their owners. Hidden adapter macros are implementation
+details. Generate current method documentation with
+`cargo doc --no-deps --features gpui --open`; hosted docs still describe the
+latest published version until this checkout is released.
 
-For generated method-level docs, run `cargo doc --no-deps --features gpui --open`.
-Browse the [0.2.0 API reference](https://docs.rs/gpui-ce-motion/0.2.0/gpui_ce_motion/)
-for generated method and variant documentation.
-
-| Group          | Public exports                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Required feature |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------- |
-| motion         | [`Frame`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/motion.rs#L287), [`Motion`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/motion.rs#L168), [`MotionState`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/motion.rs#L372), [`Presence`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/motion.rs#L274), [`Property`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/motion.rs#L256), [`Target`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/motion.rs#L16)                                                                                                                                                                                                                                                                                                                                                                                      | None             |
-| transition     | [`Bezier`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/transition.rs#L327), [`CustomEasing`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/transition.rs#L118), [`Easing`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/transition.rs#L6), [`InvalidEasing`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/transition.rs#L386), [`InvalidSpring`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/transition.rs#L297), [`Spring`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/transition.rs#L153), [`Transition`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/transition.rs#L310)                                                                                                                                                                                                                                                           | None             |
-| value          | [`Inertia`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/value.rs#L7), [`MotionValue`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/value.rs#L107), [`ValueFrame`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/value.rs#L67)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | None             |
-| animation      | [`Animation`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/animation.rs#L106), [`AnimationError`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/animation.rs#L10), [`AnimationState`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/animation.rs#L488), [`Keyframe`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/animation.rs#L37), [`Playback`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/animation.rs#L409), [`Repeat`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/animation.rs#L72), [`RepeatMode`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/animation.rs#L87), [`StaggerFrom`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/animation.rs#L639), [`Timeline`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/animation.rs#L677), [`stagger`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/animation.rs#L649) | None             |
-| color          | [`Color`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/color.rs#L7), [`ColorState`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/color.rs#L76)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | None             |
-| interaction    | [`Drag`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/interaction.rs#L118), [`GestureTargets`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/interaction.rs#L54), [`InView`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/interaction.rs#L358), [`Interaction`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/interaction.rs#L39), [`Variants`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/interaction.rs#L7), [`move_item`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/interaction.rs#L440), [`reorder_index`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/interaction.rs#L422), [`scroll_progress`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/interaction.rs#L341), [`transform`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/interaction.rs#L320)                                                                  | None             |
-| presence       | [`PresenceChild`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/presence.rs#L16), [`PresenceGroup`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/presence.rs#L36), [`PresenceMode`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/presence.rs#L6)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | None             |
-| svg            | [`SvgFrame`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/svg.rs#L121), [`SvgMotion`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/svg.rs#L79), [`SvgMotionState`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/svg.rs#L159), [`SvgTarget`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/svg.rs#L11)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | None             |
-| layout         | [`LayoutPositionFrame`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/layout.rs#L8), [`LayoutPositionState`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/layout.rs#L52)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | None             |
-| layout native  | [`LayoutGroup`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/layout_native.rs#L16), [`LayoutPositionElement`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/layout_native.rs#L54)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | `gpui`           |
-| style motion   | [`ColorProperty`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/style_motion.rs#L65), [`StyleFrame`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/style_motion.rs#L267), [`StyleMotion`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/style_motion.rs#L216), [`StyleMotionState`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/style_motion.rs#L293), [`StyleProperty`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/style_motion.rs#L9), [`StyleTarget`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/style_motion.rs#L83)                                                                                                                                                                                                                                                                                                                       | None             |
-| measured size  | [`AutoSize`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/measured_size.rs#L27), [`SizeAxis`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/measured_size.rs#L13)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | `gpui`           |
-| pop layout     | [`PopElement`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/pop_layout.rs#L71), [`PopLayout`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/pop_layout.rs#L17), [`PopRequest`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/pop_layout.rs#L108)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | `gpui`           |
-| gesture native | [`GestureElement`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/gesture_native.rs#L140), [`GestureState`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/gesture_native.rs#L68)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | `gpui`           |
-| scroll native  | [`Axis`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/scroll_native.rs#L13), [`ScrollMotion`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/scroll_native.rs#L44), [`native_scroll_progress`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/scroll_native.rs#L22)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | `gpui`           |
-| shared layout  | [`SharedElement`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/shared_layout.rs#L82), [`SharedLayout`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/shared_layout.rs#L26)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | `gpui`           |
-| reorder native | [`ReorderElement`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/reorder_native.rs#L145), [`ReorderGroup`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/reorder_native.rs#L52)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | `gpui`           |
-| vector         | [`PathCommand`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/vector.rs#L7), [`PathError`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/vector.rs#L53), [`PathFrame`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/vector.rs#L352), [`PathMorphState`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/vector.rs#L252), [`PathShape`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/vector.rs#L77), [`StrokeReveal`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/vector.rs#L129)                                                                                                                                                                                                                                                                                                                                                                     | None             |
-| vector native  | [`VectorElement`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/vector_native.rs#L83), [`VectorState`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/vector_native.rs#L23)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | `gpui`           |
-| text options | [`TextUnit`, `TextMatch`, `TextClip`, `TextPreset`, `TextTarget`, `TextUnitInfo`, `Scramble`, `NumberEffect`, `TextOptions`, `TextError`, `text_ranges`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/text/options.rs) | `text` |
-| text playback | [`TextLayoutUnit`, `TextPresentation`, `TextPlaybackState`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/text/state.rs) | `text` |
-| text native | [`TextMotionState`, `TextElement`, `NumberMotionState`, `NumberElement`](https://github.com/1bye/gpui-motion/blob/v0.2.0/src/text/native.rs) | `gpui` |
+| Group | Public exports | Feature |
+| --- | --- | --- |
+| [motion](src/motion.rs) | `Frame`, `Motion`, `MotionState`, `Presence`, `Property`, `Target` | None |
+| [transitions](src/transition.rs) | `Bezier`, `CustomEasing`, `Easing`, `InvalidEasing`, `InvalidSpring`, `Spring`, `Transition` | None |
+| [values](src/value.rs) | `Inertia`, `MotionValue`, `ValueFrame` | None |
+| [playback](src/animation.rs) | `Animation`, `AnimationError`, `AnimationState`, `Keyframe`, `Playback`, `Repeat`, `RepeatMode`, `StaggerFrom`, `Timeline`, `stagger` | None |
+| [colors](src/color.rs) | `Color`, `ColorState` | None |
+| [interaction](src/interaction.rs) | `Drag`, `GestureTargets`, `InView`, `Interaction`, `Variants`, `move_item`, `reorder_index`, `scroll_progress`, `transform` | None |
+| [presence](src/presence.rs) | `PresenceChild`, `PresenceGroup`, `PresenceMode` | None |
+| [SVG](src/svg.rs) | `SvgFrame`, `SvgMotion`, `SvgMotionState`, `SvgTarget` | None |
+| [position](src/layout.rs) | `LayoutPositionFrame`, `LayoutPositionState` | None |
+| [styles](src/style_motion.rs) | `ColorProperty`, `StyleFrame`, `StyleMotion`, `StyleMotionState`, `StyleProperty`, `StyleTarget` | None |
+| [graph](src/graph.rs) | `GraphError`, `GraphSubscription`, `MotionEvent`, `MotionEventKind`, `MotionGraph`, `ValueId` | None |
+| [orchestration](src/orchestration.rs) | `ChildrenOrder`, `MotionConfig`, `MotionNode`, `MotionTree`, `TreeError` | None |
+| [completion](src/completion.rs) | `Completion`, `CompletionStatus` | None |
+| [typed playback](src/typed_animation.rs) | `MotionData`, `TrackId`, `TypedAnimation`, `TypedFrame`, `TypedKeyframe`, `TypedState`, `TypedTimeline` | None |
+| [geometry/input](src/geometry.rs) | `AutoScroll`, `DragBounds`, `GeometryError`, `LayoutRect`, `ReorderAxis`, `ScrollEdge`, `ScrollOffsets`, `ScrollFrame`, `DragEvent`, `GesturePhase`, `PinchGesture` | None |
+| [vectors](src/vector.rs) | `PathCommand`, `PathError`, `PathFrame`, `PathMorphState`, `PathShape`, `StrokeReveal` | None |
+| [vector preparation](src/vector/tools.rs) | `PathMeasure`, `PathPoint` | None |
+| [SVG parser](src/vector/parser.rs) | `SvgPathError` | svg-path |
+| [text options](src/text/options.rs) | `NumberEffect`, `Scramble`, `TextClip`, `TextError`, `TextMatch`, `TextOptions`, `TextPreset`, `TextRevealAxis`, `TextTarget`, `TextUnit`, `TextUnitInfo`, `text_ranges` | text |
+| [text lifecycle](src/text/state.rs) | `TextLayoutUnit`, `TextPlaybackState`, `TextPresentation` | text |
+| [text formatting](src/text/format.rs) | `FixedNumber`, `FormattedNumber`, `NumberFormat`, `NumberFormatError`, `RichText`, `TextSpan` | text |
+| [native layout](src/layout_native.rs) | `LayoutGroup`, `LayoutPositionElement` | gpui |
+| [native sizing](src/measured_size.rs) | `AutoSize`, `SizeAxis` | gpui |
+| [native exits](src/pop_layout.rs) | `PopElement`, `PopLayout`, `PopRequest` | gpui |
+| [native gestures](src/gesture_native.rs) | `GestureElement`, `GestureState` | gpui |
+| [native scroll](src/scroll_native.rs) | `Axis`, `ScrollMotion`, `native_scroll_progress` | gpui |
+| [native shared](src/shared_layout.rs) | `SharedElement`, `SharedLayout` | gpui |
+| [native reorder](src/reorder_native.rs) | `ReorderElement`, `ReorderGroup` | gpui |
+| [native vectors](src/vector_native.rs) | `VectorElement`, `VectorState` | gpui |
+| [native text](src/text/native.rs) | `NumberElement`, `NumberMotionState`, `TextElement`, `TextMotionState` | gpui |
+| [native spatial](src/spatial_native.rs) | `AnchorElement`, `GraphState`, `MotionAnchor`, `MotionTreeState`, `ScrollTracker`, `SharedOverlay`, `SharedOverlayElement` | gpui |
 
 ## Ownership in four rules
 
@@ -1206,7 +1603,7 @@ for generated method and variant documentation.
 | Dimensions, spacing, and measured content sizing           | Real layout; text and siblings can reflow                                      |
 | Automatic position animation and shared position/crossfade | Sizes change immediately; no size projection                                   |
 | SVG scale and rotation                                     | Drawing only; native hitboxes, clipping, and children stay untransformed       |
-| Native paths and stroke reveal                             | Matching command topology; no arbitrary SVG parser or shape normalization      |
+| Native paths and stroke reveal                             | Parsed path data/arcs, bounded corresponding-contour normalization, prepared following queries      |
 | Blur and backdrop blur                                     | Need separate GPU profiling; CPU sampling timings do not measure these effects |
 
 Arbitrary element-tree scale/rotation/skew/perspective and full layout projection
@@ -1221,7 +1618,7 @@ No direct `gpui-ce-motion` dependency or CE-specific `gpui` feature is needed.
 
 ```toml
 [dependencies]
-gpui-motion-kit = "0.3"
+gpui-motion-kit = "0.4"
 gpui-kit = { version = "=0.7.3", features = ["component", "assets"] }
 ```
 
@@ -1232,9 +1629,10 @@ use a different integration.
 
 The [Kit README](integrations/gpui-kit/README.md) includes a complete runnable
 button/panel application and examples for enter/exit, animated text and numbers,
-position-only layout, and scalar values. Version **0.3.0** adds native style,
+position-only layout, and scalar values. Kit 0.3.0 added native style,
 gesture/scroll, measured sizing, reorder/popped-exit/shared-position, clip/timeline
-and SVG helpers. The [API reference](https://docs.rs/gpui-motion-kit/latest/gpui_motion_kit/)
+and SVG helpers. Kit 0.4.0 adds the expanded shared engine and Motion lab.
+The [API reference](https://docs.rs/gpui-motion-kit/latest/gpui_motion_kit/)
 and Kit README document these helpers and the stock renderer's filter/transform
 limits.
 
@@ -1259,3 +1657,7 @@ cargo run --manifest-path integrations/gpui-kit/Cargo.toml --features demo --exa
 MIT OR Apache-2.0. The library and demos were extracted from 1keep at commit
 `0cb95d0`; the original [MIT](LICENSE-MIT) and [Apache-2.0](LICENSE-APACHE)
 notices are retained.
+
+
+The expanded engine's CPU benchmarks, allocation checks and native acceptance are
+recorded in [the performance report](PERFORMANCE.md#expanded-shared-engine--core-030--kit-040).

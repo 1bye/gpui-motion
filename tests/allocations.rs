@@ -172,3 +172,68 @@ fn prepared_text_sampling_and_scrubbing_do_not_allocate() {
 
     assert_eq!(allocations, 0);
 }
+
+#[test]
+fn prepared_graph_tree_typed_tracks_and_path_queries_sample_without_allocating() {
+    let mut graph = MotionGraph::default();
+    let input = graph.source(0.);
+    let derived = graph.derive(&[input], |values| values[0] * 2.).unwrap();
+
+    let _subscription = graph
+        .subscribe(derived, |event| {
+            std::hint::black_box(event);
+        })
+        .unwrap();
+
+    let mut tree = MotionTree::default();
+
+    let variants = Variants::new([
+        (true, Motion::new(Target::default().x(100.))),
+        (false, Motion::new(Target::default())),
+    ])
+    .unwrap();
+
+    tree.add(MotionNode::new(0, Target::default(), variants))
+        .unwrap();
+    let clip = TypedAnimation::to(Color::rgb(0xffffff), Duration::from_secs(1), Easing::Linear)
+        .unwrap()
+        .repeat(Repeat::Forever, RepeatMode::Mirror, Duration::ZERO)
+        .unwrap();
+
+    let mut timeline = TypedTimeline::default();
+    let track = timeline.at(Duration::ZERO, Color::rgb(0), clip);
+
+    let shape = PathShape::new([
+        PathCommand::Move([0., 0.]),
+        PathCommand::Cubic([10., 100.], [100., 10.], [100., 100.]),
+    ])
+    .unwrap();
+
+    let measure = PathMeasure::new(&shape).unwrap();
+
+    COUNT.with(|count| count.set(Some(0)));
+
+    for i in 0..240 {
+        let now = Duration::from_millis(i * 8);
+
+        graph
+            .animate(
+                input,
+                if i % 24 < 12 { 100. } else { 0. },
+                Transition::default(),
+                now,
+            )
+            .unwrap();
+        graph.sample(now, false);
+        std::hint::black_box(graph.get(derived).unwrap());
+        tree.set_variant(&(i % 24 < 12), now, false).unwrap();
+        tree.sample(now, false);
+        timeline.sample(now, false);
+        std::hint::black_box(timeline.value(track));
+        std::hint::black_box(measure.point(i as f64 / 240.));
+    }
+
+    let count = COUNT.with(|count| count.replace(None).unwrap());
+
+    assert_eq!(count, 0);
+}

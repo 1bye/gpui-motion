@@ -773,3 +773,111 @@ stream failure). Reliable visual acceptance of the remaining scenes was therefor
 not completed. This is separate from the production gallery's six passing native
 input/layout tests. GPU/display cadence, real screen-reader announcements,
 Linux/Windows execution and alternate display scales remain unverified.
+
+
+## Expanded shared engine — core 0.3.0 / Kit 0.4.0
+
+Apple M1 Max, macOS 26.6.2, Rust 1.95.0, optimized builds. Baseline is
+`a44f80ba971c989a7b35cbf4bfb6dbdf20a6724c` (core 0.2.0), extracted into an
+independent temporary checkout. The same portable sampling benchmark runs against
+both versions without native features. Two sequential passes use reversed order;
+no builds run concurrently. The desktop remains interactive, so these observations
+include scheduler noise. [Complete output](docs/performance/2026-10-18-expansion.txt).
+
+### Existing portable sampling
+
+Twenty-five batches of 240 frames × 1000 objects. The table shows the range of
+median ns/object across two runs, not confidence intervals.
+
+| Workload | Baseline | Current |
+| --- | ---: | ---: |
+| Settled | 71.1–71.6 | 69.0–69.9 |
+| Tween interruption | 96.8–99.3 | 94.2–95.2 |
+| Spring interruption | 133.3–137.1 | 126.3–127.0 |
+| Six numeric channels | 225.3–236.5 | 216.4–216.6 |
+| Prepared repeating clip | 100.5–101.3 | 97.2–97.6 |
+| Drag/inertia | 58.4–58.4 | 57.3–58.0 |
+| Styles/colors | 501.6–538.9 | 482.7–483.2 |
+| Curve morph/reveal | 553.3–576.9 | 533.5–536.8 |
+
+The observed current medians were lower in these runs. Scheduler noise and two
+repetitions limit conclusions about overall performance. Batch and frame tail
+variation is preserved in the complete output; these observations do not establish
+a latency bound.
+Portable retained sizes change from 352 to 376 bytes for `AnimationState` (completion
+observer storage), and 608 to 640 bytes for `Drag` (direction locking). `MotionState`
+remains 1496 bytes. These sizes exclude heap allocations and native clock fields.
+
+### New prepared shared-engine workloads
+
+Fifteen batches of 240 frames × 1000 items. Construction is excluded; retargeting,
+dependency sampling and callbacks are included. Graph items contain a source,
+derived value and subscriber; the tree contains 200 parents and 800 children.
+Typed timeline items each contain four color channels. Path queries use a prepared
+32-segment cubic approximation. Normal sampling reuses storage.
+
+| Workload | Median ns/item, two-run range |
+| --- | ---: |
+| source + derived + subscriber | 39.1–39.3 |
+| variant tree + spring retargeting | 36.3–37.3 |
+| mixed-capable timeline / RGBA track | 438.4–443.1 |
+| prepared path-follow query | 23.3–23.6 |
+
+Allocator-counting tests cover prepared graph subscriptions, variant retargeting,
+typed timeline samples, path queries and the existing engines: zero allocations
+inside the measured sampling loops. Preparation, native element construction,
+formatting, shaping, membership changes and requesting completion futures may allocate.
+
+### Full native lab CPU preparation
+
+The production nine-scene gallery is rendered on each stock backend's TestPlatform.
+Each case uses five batches of 240 measured frames after 24 warmup frames. Executor
+clocks advance at 120 Hz and Play toggles every 24 frames in animated scenes.
+The grid acquires through its external-handle API, dispatches three native moves
+per frame, crosses row/column destinations and the scroll edge, then releases every
+48 frames. Input, collision mapping and scrolling are included. Queued asset and callback
+work is flushed within timing, allowing SVG assets to load during warmup. Kit uses
+its actual Button components and dark theme; CE uses its native control composition.
+The cases contain different amounts of UI, so these are gallery observations rather
+than per-element costs or a controlled comparison of the two backends.
+
+| Scene | CE median batch mean, ms/frame | Kit median batch mean, ms/frame |
+| --- | ---: | ---: |
+| 01 Connected values | 0.219–0.227 | 0.498–0.505 |
+| 02 Parent/child sequence | 0.272–0.280 | 0.551–0.556 |
+| 03 Mixed timeline | 0.222–0.228 | 0.490–0.506 |
+| 06 Grid input / autoscroll | 0.697–0.720 | 1.140–1.154 |
+| 07 Cross-container transfer | 0.240–0.251 | 0.515–0.525 |
+| 08 Morph/path following | 0.276–0.284 | 0.557–0.571 |
+| 09 Rich text/font size/currency | 0.305–0.316 | 0.600–0.603 |
+
+Frame P95 values and variation are preserved in the complete output. TestPlatform substitutes font/display/GPU services:
+these timings exclude GPU submission/execution, compositor/display latency and
+physical device input. They do not establish actual 120 FPS. Font-size animation
+performs shaping/layout; prefer opacity/position when reshaping is unnecessary.
+
+### Native behavior and acceptance
+
+- Shared fixtures exercise measured scroll intersections and resize, external drag
+  handles/bounds/direction lock, callback reentry, grid pointer/keyboard ordering,
+  edge autoscroll stopping on release, stable batched pointer/key collisions,
+  measurement invalidation after external edits, cross-container hitboxes/interruption,
+  rich-text style pause, formatted accessibility and pinch lifecycle on both stacks.
+- Kit-only tests exercise recognized touch dragging/cancellation and touch reorder
+  release. CE raw touch dispatch remains pending upstream; physical touch devices
+  and operating systems other than macOS are unverified.
+- Each production lab is tested by clicking its Play control in all nine scenes
+  and interrupting it. The existing showcase/text/helper suites remain enabled.
+- Both actual macOS apps launch and respond to native scene/Play controls. Captures
+  show intact C/zero glyphs, rich style changes and the formatted amount. CE's native
+  accessibility reports `€1 209,00`. Pointer automation/capture was unreliable, so
+  live pointer/scroll acceptance remains unverified; automated native input tests
+  cover those paths. GPU timing remains unprofiled.
+
+Reproduce from the repository root:
+
+```sh
+cargo bench --locked --no-default-features --bench sampling --bench graph
+cargo bench --locked --features demo,native-tests --bench motion_lab
+cargo bench --manifest-path integrations/gpui-kit/Cargo.toml --locked --features demo,native-tests --bench motion_lab
+```

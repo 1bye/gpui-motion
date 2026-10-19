@@ -1,0 +1,117 @@
+Expanded shared engine: core 0.3.0 / Kit 0.4.0 (unreleased)
+Host: Apple M1 Max, macOS 26.6.2, rustc 1.95.0, release optimization.
+Baseline: a44f80ba971c989a7b35cbf4bfb6dbdf20a6724c (core 0.2.0).
+Two sequential passes, reversed order on pass 2, no concurrent builds.
+Portable: sampling (25 x 240 x 1000), graph (15 x 240 x 1000).
+Native: actual lab on TestPlatform, 24 warmup + 240 measured frames x 5 batches.
+Native clocks advance 8333 us/frame; controls retarget every 24 frames.
+Queued asset/callback work is flushed within native timing.
+Excludes GPU, physical input delivery, OS presentation, and display timing.
+
+[baseline, run 1]
+retained bytes/state: MotionState 1496, AnimationState 352, ColorState 992, Drag 608
+retained bytes/SVG state: 1248
+style padding/radii/color springs + interruption: median 538.9 ns/object, p95 585.9 ns/object; 1000 objects median 0.539 ms/frame
+prepared cubic morph + measured stroke reveal: median 576.9 ns/object, p95 646.7 ns/object; 1000 objects median 0.577 ms/frame
+SVG scale/rotation springs + interruption: median 165.9 ns/object, p95 176.0 ns/object; 1000 objects median 0.166 ms/frame
+measured layout position + interruption: median 86.1 ns/object, p95 89.8 ns/object; 1000 objects median 0.086 ms/frame
+repeating prepared keyframes: median 100.5 ns/object, p95 110.6 ns/object; 1000 objects median 0.100 ms/frame
+color spring + interruption: median 156.5 ns/object, p95 166.5 ns/object; 1000 objects median 0.156 ms/frame
+drag + bounded inertial release: median 58.4 ns/object, p95 66.0 ns/object; 1000 objects median 0.058 ms/frame
+settled: median 71.6 ns/object, p95 91.0 ns/object; 1000 objects median 0.072 ms/frame
+tween + interruption: median 99.3 ns/object, p95 152.3 ns/object; 1000 objects median 0.099 ms/frame
+spring + interruption: median 137.1 ns/object, p95 152.1 ns/object; 1000 objects median 0.137 ms/frame
+six-channel layout spring + interruption: median 236.5 ns/object, p95 263.7 ns/object; 1000 objects median 0.236 ms/frame
+
+[baseline, run 2]
+retained bytes/state: MotionState 1496, AnimationState 352, ColorState 992, Drag 608
+retained bytes/SVG state: 1248
+style padding/radii/color springs + interruption: median 501.6 ns/object, p95 516.4 ns/object; 1000 objects median 0.502 ms/frame
+prepared cubic morph + measured stroke reveal: median 553.3 ns/object, p95 577.6 ns/object; 1000 objects median 0.553 ms/frame
+SVG scale/rotation springs + interruption: median 157.4 ns/object, p95 158.2 ns/object; 1000 objects median 0.157 ms/frame
+measured layout position + interruption: median 83.6 ns/object, p95 88.8 ns/object; 1000 objects median 0.084 ms/frame
+repeating prepared keyframes: median 101.3 ns/object, p95 106.4 ns/object; 1000 objects median 0.101 ms/frame
+color spring + interruption: median 156.9 ns/object, p95 165.2 ns/object; 1000 objects median 0.157 ms/frame
+drag + bounded inertial release: median 58.4 ns/object, p95 59.1 ns/object; 1000 objects median 0.058 ms/frame
+settled: median 71.1 ns/object, p95 72.0 ns/object; 1000 objects median 0.071 ms/frame
+tween + interruption: median 96.8 ns/object, p95 98.7 ns/object; 1000 objects median 0.097 ms/frame
+spring + interruption: median 133.3 ns/object, p95 141.4 ns/object; 1000 objects median 0.133 ms/frame
+six-channel layout spring + interruption: median 225.3 ns/object, p95 237.4 ns/object; 1000 objects median 0.225 ms/frame
+
+[sampling, run 1]
+retained bytes/state: MotionState 1496, AnimationState 376, ColorState 992, Drag 640
+retained bytes/SVG state: 1248
+style padding/radii/color springs + interruption: median 482.7 ns/object, p95 491.7 ns/object; 1000 objects median 0.483 ms/frame
+prepared cubic morph + measured stroke reveal: median 536.8 ns/object, p95 541.5 ns/object; 1000 objects median 0.537 ms/frame
+SVG scale/rotation springs + interruption: median 141.8 ns/object, p95 144.1 ns/object; 1000 objects median 0.142 ms/frame
+measured layout position + interruption: median 81.1 ns/object, p95 82.5 ns/object; 1000 objects median 0.081 ms/frame
+repeating prepared keyframes: median 97.6 ns/object, p95 98.1 ns/object; 1000 objects median 0.098 ms/frame
+color spring + interruption: median 154.0 ns/object, p95 156.6 ns/object; 1000 objects median 0.154 ms/frame
+drag + bounded inertial release: median 58.0 ns/object, p95 59.5 ns/object; 1000 objects median 0.058 ms/frame
+settled: median 69.9 ns/object, p95 71.0 ns/object; 1000 objects median 0.070 ms/frame
+tween + interruption: median 95.2 ns/object, p95 95.9 ns/object; 1000 objects median 0.095 ms/frame
+spring + interruption: median 127.0 ns/object, p95 128.1 ns/object; 1000 objects median 0.127 ms/frame
+six-channel layout spring + interruption: median 216.6 ns/object, p95 218.0 ns/object; 1000 objects median 0.217 ms/frame
+
+[sampling, run 2]
+retained bytes/state: MotionState 1496, AnimationState 376, ColorState 992, Drag 640
+retained bytes/SVG state: 1248
+style padding/radii/color springs + interruption: median 483.2 ns/object, p95 507.4 ns/object; 1000 objects median 0.483 ms/frame
+prepared cubic morph + measured stroke reveal: median 533.5 ns/object, p95 536.5 ns/object; 1000 objects median 0.534 ms/frame
+SVG scale/rotation springs + interruption: median 139.9 ns/object, p95 141.4 ns/object; 1000 objects median 0.140 ms/frame
+measured layout position + interruption: median 80.5 ns/object, p95 81.2 ns/object; 1000 objects median 0.080 ms/frame
+repeating prepared keyframes: median 97.2 ns/object, p95 99.0 ns/object; 1000 objects median 0.097 ms/frame
+color spring + interruption: median 152.5 ns/object, p95 164.9 ns/object; 1000 objects median 0.153 ms/frame
+drag + bounded inertial release: median 57.3 ns/object, p95 58.1 ns/object; 1000 objects median 0.057 ms/frame
+settled: median 69.0 ns/object, p95 69.7 ns/object; 1000 objects median 0.069 ms/frame
+tween + interruption: median 94.2 ns/object, p95 95.3 ns/object; 1000 objects median 0.094 ms/frame
+spring + interruption: median 126.3 ns/object, p95 128.0 ns/object; 1000 objects median 0.126 ms/frame
+six-channel layout spring + interruption: median 216.4 ns/object, p95 220.1 ns/object; 1000 objects median 0.216 ms/frame
+
+[graph, run 1]
+source + derived + subscriber: median 39.1 ns/item, batch P95 63.0 ns/item; 1000 items
+variant tree + spring retargeting: median 36.3 ns/item, batch P95 38.2 ns/item; 1000 items
+mixed-capable timeline / RGBA track: median 438.4 ns/item, batch P95 451.5 ns/item; 1000 items
+prepared path-follow query: median 23.3 ns/item, batch P95 24.2 ns/item; 1000 items
+
+[graph, run 2]
+source + derived + subscriber: median 39.3 ns/item, batch P95 40.0 ns/item; 1000 items
+variant tree + spring retargeting: median 37.3 ns/item, batch P95 39.1 ns/item; 1000 items
+mixed-capable timeline / RGBA track: median 443.1 ns/item, batch P95 907.5 ns/item; 1000 items
+prepared path-follow query: median 23.6 ns/item, batch P95 24.7 ns/item; 1000 items
+
+[ce, run 1]
+lab scene 01: median batch mean 0.219 ms/frame; frame P95 0.248 ms; 5 x 240 frames
+lab scene 02: median batch mean 0.272 ms/frame; frame P95 0.299 ms; 5 x 240 frames
+lab scene 03: median batch mean 0.222 ms/frame; frame P95 0.240 ms; 5 x 240 frames
+lab scene 06: median batch mean 0.697 ms/frame; frame P95 0.769 ms; 5 x 240 frames
+lab scene 07: median batch mean 0.240 ms/frame; frame P95 0.259 ms; 5 x 240 frames
+lab scene 08: median batch mean 0.276 ms/frame; frame P95 0.298 ms; 5 x 240 frames
+lab scene 09: median batch mean 0.305 ms/frame; frame P95 0.344 ms; 5 x 240 frames
+
+[ce, run 2]
+lab scene 01: median batch mean 0.227 ms/frame; frame P95 0.270 ms; 5 x 240 frames
+lab scene 02: median batch mean 0.280 ms/frame; frame P95 0.313 ms; 5 x 240 frames
+lab scene 03: median batch mean 0.228 ms/frame; frame P95 0.244 ms; 5 x 240 frames
+lab scene 06: median batch mean 0.720 ms/frame; frame P95 0.823 ms; 5 x 240 frames
+lab scene 07: median batch mean 0.251 ms/frame; frame P95 0.285 ms; 5 x 240 frames
+lab scene 08: median batch mean 0.284 ms/frame; frame P95 0.317 ms; 5 x 240 frames
+lab scene 09: median batch mean 0.316 ms/frame; frame P95 0.364 ms; 5 x 240 frames
+
+[kit, run 1]
+lab scene 01: median batch mean 0.498 ms/frame; frame P95 0.618 ms; 5 x 240 frames
+lab scene 02: median batch mean 0.551 ms/frame; frame P95 0.654 ms; 5 x 240 frames
+lab scene 03: median batch mean 0.490 ms/frame; frame P95 0.564 ms; 5 x 240 frames
+lab scene 06: median batch mean 1.140 ms/frame; frame P95 1.380 ms; 5 x 240 frames
+lab scene 07: median batch mean 0.515 ms/frame; frame P95 0.602 ms; 5 x 240 frames
+lab scene 08: median batch mean 0.557 ms/frame; frame P95 0.630 ms; 5 x 240 frames
+lab scene 09: median batch mean 0.600 ms/frame; frame P95 0.721 ms; 5 x 240 frames
+
+[kit, run 2]
+lab scene 01: median batch mean 0.505 ms/frame; frame P95 0.603 ms; 5 x 240 frames
+lab scene 02: median batch mean 0.556 ms/frame; frame P95 0.681 ms; 5 x 240 frames
+lab scene 03: median batch mean 0.506 ms/frame; frame P95 0.611 ms; 5 x 240 frames
+lab scene 06: median batch mean 1.154 ms/frame; frame P95 1.397 ms; 5 x 240 frames
+lab scene 07: median batch mean 0.525 ms/frame; frame P95 0.606 ms; 5 x 240 frames
+lab scene 08: median batch mean 0.571 ms/frame; frame P95 0.691 ms; 5 x 240 frames
+lab scene 09: median batch mean 0.603 ms/frame; frame P95 0.731 ms; 5 x 240 frames

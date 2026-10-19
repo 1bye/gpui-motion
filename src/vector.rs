@@ -439,3 +439,13 @@ impl PathFrame<'_> {
         }
     }
 }
+
+mod tools;
+
+pub use tools::{PathMeasure, PathPoint};
+
+#[cfg(feature = "svg-path")]
+mod parser;
+
+#[cfg(feature = "svg-path")]
+pub use parser::SvgPathError;

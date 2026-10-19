@@ -147,8 +147,19 @@ impl MotionValue {
         self.value
     }
 
+    pub(crate) fn active(&self) -> bool {
+        self.active
+    }
+
     pub(crate) fn target(&self) -> f64 {
         self.target
+    }
+
+    pub(crate) fn matches(&self, target: f64, transition: Transition) -> bool {
+        self.mode == Mode::Transition
+            && self.target == target
+            && self.transition == transition
+            && self.delay.is_zero()
     }
 
     #[cfg(feature = "text")]
@@ -157,6 +168,25 @@ impl MotionValue {
         self.value = finite(self.value + offset);
         self.from = finite(self.from + offset);
         self.target = finite(self.target + offset);
+    }
+
+    /// Converts positive linear units while retaining trajectory, momentum and
+    /// inertia bounds. Panics for a nonpositive or non-finite factor. Numeric
+    /// overflow saturates using the same policy as ordinary motion arithmetic.
+    /// Spring rest thresholds remain expressed in the new units.
+    pub fn rescale(&mut self, factor: f64) {
+        assert!(factor.is_finite() && factor > 0.0, "invalid unit scale");
+        self.value = finite(self.value * factor);
+        self.velocity = finite(self.velocity * factor);
+        self.from = finite(self.from * factor);
+        self.initial_velocity = finite(self.initial_velocity * factor);
+        self.target = finite(self.target * factor);
+
+        if let Mode::Inertia(ref mut inertia) = self.mode {
+            inertia.bounds = inertia
+                .bounds
+                .map(|(min, max)| (finite(min * factor), finite(max * factor)));
+        }
     }
 
     /// Last sampled velocity.

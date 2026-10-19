@@ -187,3 +187,20 @@ synthetic font metrics and glyphs; platform font shaping, glyph rasterization,
 display and GPU execution are outside these timings. They do not establish display
 cadence, energy use or screen-reader behavior. Native macOS checks complement them. Blur, arbitrary glyph/subtree
 transforms, font-axis interpolation and outline morphing are outside this API.
+
+## Rich styles and fixed-point formatting
+
+See the README sections [rich text](../README.md#rich-text-vertical-reveals-and-decimal-counters)
+and [native text](../README.md#native-rich-text-and-formatted-numbers) for full examples.
+
+Rich spans shape together, with native family/weight/color runs. Color uses retained
+linear-light samplers. Font-size animation reshapes and lays out the label each
+frame; it is more expensive than a paint translation. Font size/line height stay
+label-wide. `pause`/`play` also controls decorative styles; normalized seek/restart
+controls the glyph entrance only. Existing macOS demo font workaround is retained.
+
+Fixed-point values preserve exact endpoints (coefficient i64, scale 0–18), including
+i64::MIN. Formatting is explicit, without automatic ICU data or financial rounding.
+Numeric roll uses semantic decimal-place slots; changing scale converts the retained
+interpolation trajectory before retargeting. Interpolated intermediate coefficients
+use f64, so very large values can skip integer steps; endpoint display remains exact.

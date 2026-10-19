@@ -10,22 +10,16 @@ frame scheduling, and reduced-motion preference. No JavaScript or renderer fork.
 [Published API reference](https://docs.rs/gpui-motion-kit/latest/gpui_motion_kit/) ·
 [Product examples](#product-examples) · [Text gallery](#text-gallery)
 
-Version **0.3.0** adds native style, input, scroll, measured sizing, reorder,
-shared-position, playback and SVG transform helpers over the same shared engine.
-Explore them in the [eight-scene helper gallery](#helper-gallery).
+Version **0.4.0** uses the shared **gpui-ce-motion 0.3.0** engine and adds reactive
+values, nested orchestration, typed timelines, spatial helpers, rich text and
+formatted numbers. Explore the nine-scene `motion_lab` or the
+[eight-scene helper gallery](#helper-gallery).
 
 ## Install
 
-```sh
-cargo add gpui-motion-kit@0.3
-cargo add gpui-kit@=0.7.3 --features component,assets
-```
-
-Or add these dependencies to your application:
-
 ```toml
 [dependencies]
-gpui-motion-kit = "0.3"
+gpui-motion-kit = "0.4"
 gpui-kit = { version = "=0.7.3", features = ["component", "assets"] }
 ```
 
@@ -329,8 +323,9 @@ from `.test_support()`. Attach control semantics and activation to that child;
 this wrapper does not replace a Kit Button's own internal interaction system.
 Use a dedicated drag surface rather than competing with nested editors/buttons
 for pointer and focus ownership.
-Mouse and keyboard are supported. Multi-touch, OS-wide capture and autoscroll
-remain application/platform work.
+Mouse/keyboard and native pinch are supported. Recognized touch dragging is
+opt-in with `touch_drag(true)`. See the measured-input and spatial-reorder sections
+for handles, direction locking and edge scrolling. OS-wide capture remains platform work.
 
 ## Scroll-driven animation
 
@@ -391,7 +386,8 @@ axes follow content immediately without keeping an animation loop alive.
 
 ## Reordering and popped exits
 
-`ReorderGroup` owns a single-axis logical order and measured variable-size items.
+`ReorderGroup` owns logical order and measured variable-size items. `new` chooses
+a single axis; `spatial` also supports automatic detection and 2D grids.
 Keep the group and domain keys stable. Pointer movement reorders; Option+arrows
 on macOS (Alt+arrows elsewhere) moves the focused item. Escape/deactivation cancels.
 
@@ -415,7 +411,8 @@ let group = ReorderGroup::new(vec![1, 2, 3], Axis::Y).expect("unique task keys")
 `on_change` reports pointer commit/keyboard changes without borrowing group state.
 Capture application entities weakly. `set_order` updates membership transactionally
 and cancels a grab; call it on model changes, not every render. The owner handles
-persistence, focus after removal, and autoscroll. Multi-column sorting is not implied.
+persistence and focus after removal. See [spatial reorder](#spatial-reorder-and-edge-scrolling)
+for grid collision behavior and optional edge autoscroll.
 
 `PopLayout` lets an outgoing item leave normal flow immediately while retaining
 its last visible parent-relative bounds. It also animates sibling reflow:
@@ -606,6 +603,394 @@ simulated; these examples do not access email, download files, or publish anythi
 Artwork is embedded in the executable and decoded once at startup. The showcase
 was validated on macOS; Linux/Windows runs and screen-reader behavior are unverified.
 
+## Reactive values and subscriptions
+
+`MotionGraph` retains sources, derived values, and subscriptions. A sample updates
+all dependencies before dispatching events. Keep the subscription handle alive;
+dropping it unsubscribes. Prepare mappings once, outside rendering.
+
+```rust
+use gpui_motion_kit::core::{MotionGraph, MotionEventKind, Transition};
+use std::time::Duration;
+
+let mut graph = MotionGraph::default();
+let progress = graph.source(0.0);
+let x = graph.derive(&[progress], |values| values[0] * 240.0).unwrap();
+let opacity = graph.derive(&[progress], |values| 0.4 + values[0] * 0.6).unwrap();
+
+let subscription = graph.subscribe(x, |event| {
+    if event.kind == MotionEventKind::Complete {
+        println!("Arrived at {}", event.value);
+    }
+}).unwrap();
+
+graph.animate(progress, 1.0, Transition::default(), Duration::ZERO).unwrap();
+graph.sample(Duration::from_millis(100), false);
+
+let position = graph.get(x).unwrap();
+let alpha = graph.get(opacity).unwrap();
+```
+
+`set` records direct input velocity; `jump` resets momentum. `animate` preserves
+spring momentum. Events are `Start`, `Cancel`, `Change`, and `Complete`. Multiple
+writes coalesce per sample. Callbacks may cancel subscriptions or update another
+owner; defer edits to the graph being sampled until callbacks return.
+
+Use `typed_source`, `animate_typed`, and `typed_value` for colors, `Target`,
+`StyleTarget`, `SvgTarget`, `TextTarget`, arrays, or your own `MotionData<N>` type.
+`target(base, &[(Property, ValueId)])` binds graph values to native target fields.
+
+## Parent and child sequences
+
+A retained `MotionTree` propagates variants, staggers siblings, and sequences
+parents before or after children. Add parents first. Keys are application data.
+
+```rust
+use gpui_motion_kit::core::{ChildrenOrder, Motion, MotionConfig, MotionNode, MotionTree, Target, Variants};
+use std::time::Duration;
+
+let variants = || Variants::new([
+    (true, Motion::new(Target::default().y(0.0).opacity(1.0))),
+    (false, Motion::new(Target::default()).present(false)
+        .exit(Target::default().y(12.0).opacity(0.0))),
+]).unwrap();
+
+let mut tree = MotionTree::default()
+    .config(MotionConfig::default().stagger(Duration::from_millis(40)));
+
+tree.add(MotionNode::new("panel", Target::default(), variants())
+    .when(ChildrenOrder::BeforeChildren)
+    .exit_when(ChildrenOrder::AfterChildren)).unwrap();
+tree.add(MotionNode::new("title", Target::default(), variants())
+    .parent("panel")).unwrap();
+
+tree.set_variant(&false, Duration::ZERO, false).unwrap();
+tree.sample(Duration::from_millis(100), false);
+
+let retain_panel = tree.is_mounted(&"panel");
+let title = tree.get(&"title").unwrap();
+```
+
+`Together`, `BeforeChildren`, and `AfterChildren` choose the timing relationship.
+`exit_when` optionally chooses a separate policy for leaving.
+`inherit(false)` blocks ancestor variant propagation into that subtree;
+`set_node_variant` explicitly selects one subtree. `set_motion` accepts a dynamic
+Rust-computed declaration for one node. Identical declarations do not restart.
+Gated animations hold their local clock and momentum. Nested exits keep a parent
+mounted until every participating descendant exits; a non-exiting child keeps it
+mounted. The application removes the view and restores focus afterward.
+
+`MotionConfig::transition(...).motion(target)` supplies explicit defaults to your
+render helpers. It installs no global provider and does not override OS preferences.
+
+## Typed clips and mixed timelines
+
+`TypedAnimation<T, N>` supports scalars, colors, numeric targets, styles, SVG
+transforms, text targets, and arrays. Implement `MotionData<N>` for another fixed
+numeric representation. Seed and clip must declare the same property mask.
+
+```rust
+use gpui_motion_kit::core::{Color, Easing, SvgTarget, TypedAnimation, TypedTimeline};
+use std::time::Duration;
+
+let mut timeline = TypedTimeline::default();
+
+let color = timeline.at(
+    Duration::ZERO,
+    Color::rgb(0x223344),
+    TypedAnimation::to(Color::rgb(0xd8f58b), Duration::from_millis(400), Easing::EaseInOut).unwrap(),
+);
+
+timeline.label("turn", Duration::from_millis(120)).unwrap();
+
+let icon = timeline.at_label(
+    "turn",
+    -0.04,
+    SvgTarget::default(),
+    TypedAnimation::to(SvgTarget::default().rotate_degrees(360.0), Duration::from_millis(600), Easing::EaseInOut).unwrap(),
+).unwrap();
+
+timeline.sample(Duration::from_millis(300), false);
+
+let background = timeline.value(color).unwrap();
+let transform = timeline.value(icon).unwrap();
+```
+
+Use `TypedKeyframe::new/current/easing`, `TypedAnimation::keyframes/to/spring`,
+`delay`, and `repeat` to prepare clips. `TypedState::sample` plays one typed value
+with per-channel spring interruption. `TypedTimeline::after` accepts signed
+seconds for gaps or overlaps; adding after a forever track returns an error.
+Track IDs belong to their creating timeline. Setup allocates; sampling reuses state.
+
+Both owners support pause, play, seek, restart, speed (including reverse), and
+completion. `TypedState::finish` finishes even a forever clip. Applying sampled
+values uses the existing numeric/style/SVG/text adapters. Kit still rejects blur
+and backdrop blur through `StyleFrame::try_apply`; typed tracks add no renderer hooks.
+
+## Completion futures
+
+`AnimationState`, `TypedState`, `TypedTimeline`, and `MotionTree` expose
+`completion()`. Requesting a future allocates observer storage; ordinary sampling
+does not. Await it on your application's executor while native frames drive the
+animation. Completion, replacement, explicit cancellation, restart, and owner drop
+all resolve the observer instead of leaving a waiting task behind.
+
+```rust
+use gpui_motion_kit::core::{Animation, AnimationState, CompletionStatus, Easing, Target};
+use std::time::Duration;
+
+let clip = Animation::to(Target::default().x(80.0), Duration::from_millis(300), Easing::Linear);
+let mut state = AnimationState::default();
+
+state.sample(&clip, Duration::ZERO, false);
+
+let finished = state.completion();
+
+state.sample(&clip, Duration::from_millis(300), false);
+
+async move {
+    match finished.await {
+        CompletionStatus::Completed => println!("Finished"),
+        CompletionStatus::Cancelled => println!("Replaced or cancelled"),
+    }
+};
+```
+
+## SVG path preparation and following
+
+`PathShape::parse_svg` accepts SVG path data, including relative, smooth, implicit,
+and elliptical arc commands. Enable `svg-path` for portable use; the native
+adapters enable it. This parses path data, not an SVG document or CSS.
+
+```rust
+use gpui_motion_kit::core::{PathMeasure, PathShape};
+
+let circle = PathShape::parse_svg("M180 100 A80 80 0 1 1 20 100 A80 80 0 1 1 180 100 Z").unwrap();
+let triangle = PathShape::parse_svg("M100 20 L185 170 L15 170 Z").unwrap();
+
+let (from, to) = circle.normalize_for_morph(&triangle, 72).unwrap();
+let path = PathShape::parse_svg("M10 130 C100 0 180 220 310 60").unwrap();
+let measure = PathMeasure::new(&path).unwrap();
+
+let point = measure.point(0.4);
+let position = point.position;
+let angle_degrees = point.tangent_degrees;
+```
+
+Feed the normalized pair to `PathMorphState` or `VectorState`; feed measured
+position/tangent to a numeric target or SVG transform. Normalize and measure once.
+Queries allocate nothing. Curves use 32 subdivisions; normalization resamples to
+line contours with your chosen point budget. Contour count, order, open/closed
+status, start points, and winding must correspond. It does not infer semantic
+shape correspondence. Subpath gaps do not become visible connecting segments.
+
+## Rich text, vertical reveals, and decimal counters
+
+```rust
+use gpui_motion_kit::core::{Color, FixedNumber, NumberFormat, RichText, TextSpan};
+
+let title = RichText::new([
+    TextSpan::new("Café ").font_weight(500.0),
+    TextSpan::new("in motion.").font_weight(700.0).color(Color::rgb(0xd8f58b)),
+]);
+
+let euros = NumberFormat::default()
+    .prefix("€")
+    .decimal(",")
+    .grouping(" ", 3, 3);
+
+let value = FixedNumber::new(120900, 2).unwrap();
+let formatted = euros.format(value, 0);
+
+assert_eq!(formatted.text(), "€1 209,00");
+```
+
+`TextSpan::font_family` and `font_weight` choose native faces per span. The full
+string is shaped before units split. Font size and line height remain label-wide.
+This is a display-label API; selection/editing and variable-font-axis interpolation
+are outside its contract. Numeric endpoints use an exact i64 coefficient plus
+0–18 decimal places. Separators, affixes, digit alphabets, and 3/3 or 3/2 grouping
+are explicit; it does not bundle automatic CLDR/ICU locale rules. Currency conversion
+and rounding remain application decisions. Digit identities follow decimal places
+across grouping/affix changes and integer growth. Affixes and separators have
+distinct identities; the chosen effect applies to changed glyphs.
+
+## Native graph and tree owners
+
+Retain `GraphState` or `MotionTreeState` in your view. Call `frame` once before
+reading bound values. Use `now(cx)` for input/control timestamps; do not mix that
+executor clock with an unrelated `Instant` or a manually sampled epoch. Notify
+the owning view after edits. Idle or paused owners stop requesting frames.
+
+```rust
+use gpui_motion_kit::{GraphState, MotionTreeState};
+use gpui_motion_kit::core::MotionTree;
+
+let graph = GraphState::default();
+let tree = MotionTreeState::new(MotionTree::<u8, bool>::default());
+```
+
+`TypedState` and `TypedTimeline` also provide native `frame` and `now` methods.
+Reduced motion settles pending transitions and bypasses tree gates/staggers.
+
+## Measured scroll targets and viewport roots
+
+Retain one `MotionAnchor` per measured element and mount each once. Anchors use
+logical window coordinates, keep native input/accessibility, and request a follow-up
+frame after changed measurements. Clear an anchor before reusing it in another window.
+
+```rust
+use gpui_kit::{ScrollHandle, div, prelude::*, px};
+use gpui_motion_kit::{Axis, MotionAnchor, ScrollTracker};
+use gpui_motion_kit::core::{ScrollEdge, ScrollOffsets};
+
+let scroll = ScrollHandle::new();
+let viewport = MotionAnchor::default();
+let target = MotionAnchor::default().scroll_source(scroll.clone());
+
+let mut tracker = ScrollTracker::new(scroll.clone(), viewport.clone(), target.clone(), Axis::Y)
+    .offsets(ScrollOffsets::new(
+        ScrollEdge::new(0.0, 1.0, 0.0),
+        ScrollEdge::new(1.0, 0.0, 0.0),
+    ))
+    .margins([16.0, 0.0, 16.0, 0.0]);
+
+let panel = viewport.element("viewport", div().id("scroll")
+    .w(px(300.0)).h(px(200.0)).overflow_scroll().track_scroll(&scroll)
+    .child(target.element("target", div().h(px(600.0)))));
+```
+
+Call `tracker.frame(window, cx)` during rendering. The returned `ScrollFrame`
+contains readiness, progress, velocity, offsets, and active status; `target(from,
+to)` maps progress to numeric targets. Optional `transition` smooths with the shared
+solver. Negative margins expand the viewport; `ScrollOffsets::unclamped` permits
+anticipation. Explicit `scroll_source` avoids stale measurements between prepaints.
+For nested scrolling, track the nearest source and measure again after ancestor
+scrolling/layout; this is not an automatic browser-style ancestor observer.
+
+`GestureState::view_root(anchor).view_margins([top, right, bottom, left])` customizes
+in-view observation while preserving normal ancestor clipping.
+
+## Measured drag bounds, handles, and pinch
+
+```rust
+use gpui_motion_kit::{GestureState, MotionAnchor};
+use gpui_motion_kit::core::{Drag, GesturePhase};
+
+let bounds = MotionAnchor::default();
+
+let gesture = GestureState::default()
+    .with_drag(Drag::unconstrained([0.0, 0.0]).direction_lock(8.0))
+    .constraints(bounds.clone())
+    .on_drag(|event, _, _| {
+        if event.phase == GesturePhase::Ended {
+            println!("Released at {:?}", event.offset);
+        }
+    })
+    .on_pinch(|event, _, _| println!("Pinch scale: {}", event.scale));
+```
+
+Mount `bounds.element(...)`, then wrap the control with `gesture.bind(...)`.
+Measured constraints update on resize. Set `.drag_listener(false)` on the binding
+and call `gesture.start_drag([x, y], window, cx)` from a separate handle's mouse-down
+handler. Focus, keyboard equivalents, cancellation, release outside, and smooth
+inertial interruption remain supported. `DragEvent` reports phase, point, delta,
+offset, velocity, and direction lock. Callbacks run after internal borrows end;
+use weak view/entity captures rather than retaining the same owner in its callback.
+Pinch reports native trackpad lifecycle; mapping its scale to an SVG or another
+supported property is explicit. It cannot scale an ordinary element subtree.
+
+On stock Kit, `.touch_drag(true)` opts into its recognized touch-drag stream.
+Spatial reorder also consumes that stream. The OS/backend determines which
+touch and pinch gestures are delivered; physical mobile-device acceptance is separate.
+
+## Spatial reorder and edge scrolling
+
+```rust
+use gpui_kit::ScrollHandle;
+use gpui_motion_kit::{MotionAnchor, ReorderGroup};
+use gpui_motion_kit::core::{AutoScroll, ReorderAxis};
+
+let scroll = ScrollHandle::new();
+let viewport = MotionAnchor::default();
+
+let group = ReorderGroup::spatial(vec!["one", "two", "three"], ReorderAxis::Auto)
+    .unwrap()
+    .autoscroll(scroll.clone(), viewport.clone(), AutoScroll::default());
+```
+
+Render `group.order()` inside your ordinary row/column/wrapped grid, wrapping each
+stable-key item with `group.item(...)`. `Auto` measures whether it is a row,
+column, or grid; explicit `X`, `Y`, and `XY` are available. Pointer collisions use
+nearest measured slots. Batched pointer/key input keeps the latest measured slot
+map stable until layout catches up. Option/Alt + arrows choose a physical neighbor
+in grids. Auto chooses its axis at acquisition.
+Use `.drag_listener(false)` plus `start_drag(&key, point, window, cx)` for handles. External `set_order` changes require a fresh layout before acquiring
+another drag.
+Edge scrolling uses elapsed time and native bounds, and stops on release, Escape,
+blur, deactivation, or reaching a limit. One pointer owns a group. This is a measured
+reorder list/grid, not a virtualized arbitrary drag/drop data-transfer framework.
+
+## Cross-container shared movement
+
+```rust
+use gpui_kit::{div, prelude::*, px};
+use gpui_motion_kit::SharedOverlay;
+
+let overlay = SharedOverlay::<u8>::default();
+let source = overlay.anchor(1, "inbox", div().w(px(140.0)).h(px(80.0)));
+let destination = overlay.anchor(1, "today", div().w(px(140.0)).h(px(80.0)));
+
+overlay.select(1, "today");
+
+let floating = overlay.element(1, "moving-card", div()
+    .w(px(140.0)).h(px(80.0)).child("Read this later"));
+```
+
+Anchors may live in separate clipped containers. Render floating appearances in
+an **unclipped window-root overlay** so movement can cross them. `scroll_anchor`
+tracks a scroll source; measurements must belong to the same native window.
+`active(false)` crossfades a retiring appearance; retain it while exiting, disable
+its input, and manage focus in the host. `match_size(true)` uses destination sizes
+immediately through real layout. Position uses interruptible shared springs;
+this provides no GPU size projection. `remove(&key)` releases completed history.
+
+## Native rich text and formatted numbers
+
+```rust
+use gpui_kit::{div, prelude::*, px};
+use gpui_motion_kit::{NumberMotionState, TextMotionState};
+use gpui_motion_kit::core::{Color, FixedNumber, NumberFormat, RichText, TextPreset, TextSpan, Transition};
+
+let text = TextMotionState::default();
+let number = NumberMotionState::default();
+
+let rich = RichText::new([
+    TextSpan::new("Café "),
+    TextSpan::new("in motion.").color(Color::rgb(0xd8f58b)),
+]);
+
+let label = text.rich_element("title", &rich)
+    .preset(TextPreset::WipeDown)
+    .color_transition(Transition::default())
+    .animate_font_size(48.0, Transition::default());
+
+let format = NumberFormat::default().prefix("€").grouping(",", 3, 3);
+let count = number.formatted_element("balance", FixedNumber::new(120900, 2).unwrap(), &format);
+
+let content = div().font_family("Helvetica Neue").text_size(px(40.0))
+    .child(label)
+    .child(count);
+```
+
+`WipeDown` and `WipeUp` complement existing horizontal reveals;
+`reveal_axis(TextRevealAxis::Vertical)` configures custom wipes. Colors interpolate
+in linear light, retaining per-glyph state. `NumberElement` also forwards
+`color_transition` and `animate_font_size`. Font size animates by native shaping
+and layout, so it costs more than opacity/translation. Pause/play freezes glyph
+motion, font-size and color transitions; normalized seek/restart controls the
+entrance sequence, not style history. Keep one mounted element per text state.
+
 ## Checks
 
 ```sh
@@ -697,3 +1082,14 @@ median batch means; see [measurement details and P95](https://github.com/1bye/gp
 for workload differences, repeat-run variation and the stock-CE comparison.
 
 MIT OR Apache-2.0. See [LICENSE-MIT](LICENSE-MIT) and [LICENSE-APACHE](LICENSE-APACHE).
+
+## Motion lab
+
+Run `cargo run --features demo --example motion_lab` from this directory.
+Nine interactive scenes cover connected values, child sequences, mixed timelines,
+scroll intersections, measured handles/pinch, grid reorder/autoscroll, cross-container
+transfer, parsed paths/morphs/following, rich labels and currency counters.
+
+
+The expanded engine's CPU benchmarks, allocation checks and native acceptance are
+recorded in [the performance report](../../PERFORMANCE.md#expanded-shared-engine--core-030--kit-040).
