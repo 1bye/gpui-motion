@@ -12,9 +12,6 @@ transitions, springs, and interruptions using stock GPUI CE—no React or render
 [Demos](docs/DEVELOPMENT.md#demos) · [GPUI Kit setup](#gpui-kit) ·
 [Changelog](CHANGELOG.md)
 
-Version **0.4.0** adds `Motions<K>` for keyed transitions, synchronized batch
-sampling, and explicit cleanup. Explore it in scene **10 Collection** of `motion_lab`.
-
 ## Install
 
 For **GPUI Kit**, use [`gpui-motion-kit`](#gpui-kit). The installation below is for GPUI CE.
